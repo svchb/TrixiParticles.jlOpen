@@ -7,7 +7,7 @@ using OrdinaryDiffEq
 # ==== Resolution
 fluid_particle_spacing = 0.005
 
-boundary_layers = 3
+boundary_layers = 4
 spacing_ratio = 1
 
 # ==========================================================================================
@@ -40,7 +40,7 @@ sphere2 = SphereShape(fluid_particle_spacing, sphere_radius, sphere2_center,
 
 # ==========================================================================================
 # ==== Fluid
-fluid_smoothing_length = 2.0 * fluid_particle_spacing
+fluid_smoothing_length = 3.5 * fluid_particle_spacing
 fluid_smoothing_kernel = WendlandC2Kernel{2}()
 
 fluid_density_calculator = ContinuityDensity()
@@ -55,7 +55,7 @@ sphere_surface_tension = WeaklyCompressibleSPHSystem(sphere1, fluid_density_calc
                                                      fluid_smoothing_length,
                                                      viscosity=viscosity,
                                                      acceleration=(0.0, -gravity),
-                                                     surface_tension=SurfaceTensionAkinci(surface_tension_coefficient=0.01),
+                                                     surface_tension=SurfaceTensionAkinci(surface_tension_coefficient=0.0001, particle_spacing=fluid_particle_spacing),
                                                      correction=AkinciFreeSurfaceCorrection(fluid_density))
 
 sphere = WeaklyCompressibleSPHSystem(sphere2, fluid_density_calculator,
@@ -74,7 +74,7 @@ boundary_model = BoundaryModelDummyParticles(tank.boundary.density, tank.boundar
                                              viscosity=ViscosityAdami(nu=nu))
 
 boundary_system = BoundarySPHSystem(tank.boundary, boundary_model,
-                                    adhesion_coefficient=0.001)
+                                    adhesion_coefficient=0.5*0.001)
 
 # ==========================================================================================
 # ==== Simulation
