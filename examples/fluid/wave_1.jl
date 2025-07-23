@@ -21,6 +21,7 @@ using Printf
 # ==== 1.  Physical & numerical parameters
 const gravity        = 9.81           # [m/s²]
 const fluid_density  = 1_025.0        # [kg/m³] (sea water)
+const fluid_viscosity= 1e-6           # [m²/s] (viscosity of sea water)
 const H_water        = 0.5            # [m]  initial column height
 const W_water        = 0.4            # [m]  initial column width
 const tank_height    = 2.0            # [m]
@@ -29,14 +30,13 @@ const tank_length    = 1.5            # [m]
 const resolution_factor      = 100     # particles per H_water
 const Δx_f                   = H_water / resolution_factor       # ≈ 0.005 m
 const boundary_layers        = 4
-const spacing_ratio          = 1
-const Δx_b                   = Δx_f / spacing_ratio
+const Δx_b                   = Δx_f
 
 const t_end   = 3.0
 const tspan   = (0.0, t_end)
 
 # Weakly-compressible equation of state
-const sound_speed   = 20 * sqrt(gravity * H_water)  # ≈ 44 m/s
+const sound_speed   = 40 * sqrt(gravity * H_water)  # ≈ 44 m/s
 state_equation = StateEquationCole(; sound_speed, reference_density=fluid_density,
                                    exponent=1, clip_negative_pressure=false)
 
@@ -48,7 +48,7 @@ tank_size          = (tank_length, tank_height)
 @info "Δx = $(Δx_f*1000) mm  |  tank = $(tank_size) m  |  fluid = $(initial_fluid_size) m"
 
 tank = RectangularTank(Δx_f, initial_fluid_size, tank_size, fluid_density;
-                       n_layers = boundary_layers, spacing_ratio = spacing_ratio,
+                       n_layers = boundary_layers, spacing_ratio = 1,
                        acceleration = (0.0, -gravity), state_equation = state_equation)
 
 # =============================================================================
@@ -57,19 +57,22 @@ smoothing_length  = 1.75 * Δx_f
 smoothing_kernel  = WendlandC2Kernel{2}()
 
 fluid_density_calc = ContinuityDensity()
-viscosity          = ArtificialViscosityMonaghan(alpha = 0.02, beta = 0.0)
+# This is bound to the realizable viscosity at the resolution.
+viscosity_model    = ViscosityAdami(nu=max(0.1*Δx_f, fluid_viscosity))
 
 density_diffusion = DensityDiffusionAntuono(tank.fluid, delta = 0.1)
 
 fluid_system = WeaklyCompressibleSPHSystem(tank.fluid, fluid_density_calc,
                                            state_equation, smoothing_kernel,
-                                           smoothing_length; viscosity, density_diffusion,
+                                           smoothing_length; viscosity=viscosity_model, density_diffusion,
                                            acceleration = (0.0, -gravity))
 
 boundary_density_calc = AdamiPressureExtrapolation()
+# This is just set to the physical value since it is not needed for stability.
+wall_viscosity_model  = ViscosityAdami(nu=fluid_viscosity)
 boundary_model = BoundaryModelDummyParticles(tank.boundary.density, tank.boundary.mass,
                                              state_equation = state_equation,
-                                             boundary_density_calc,
+                                             boundary_density_calc, viscosity= wall_viscosity_model,
                                              smoothing_kernel, smoothing_length)
 
 boundary_system = BoundarySPHSystem(tank.boundary, boundary_model;
@@ -148,19 +151,31 @@ function coarse_droplet_counts(system, data, t)
     return counts
 end
 
+function max_vertical_velocity(system, data, t)
+    coords = data.coordinates
+    airborne_idx = findall(y -> y > H_water, view(coords, 2, :))
+    if isempty(airborne_idx)
+        return 0.0
+    else
+        vel = data.velocity
+        return maximum(abs.(view(vel, 2, airborne_idx)))
+    end
+end
+
 post_cb = PostprocessCallback(
     ; dt = 0.01,                        # every 10 ms → lightweight
       output_directory = "post",       # JSON files in ./post/
       filename = "spray_metrics",      # → spray_metrics_*.json
-      write_csv = false,
+      write_csv = true,
       splash_height,
       coarse_droplet_counts,
+      max_vertical_velocity
 )
 
 # =============================================================================
 # ==== 6.  Callbacks for stats & I/O
-info_cb     = InfoCallback(interval = 100)            # every 100 timesteps
-save_cb     = SolutionSavingCallback(; dt = 0.01, output_directory = "output/coastal_wave_spray_2d")
+info_cb     = InfoCallback(interval = 1000)            # every 100 timesteps
+save_cb     = SolutionSavingCallback(; dt = 0.025, output_directory = "output/coastal_wave_spray_2d", prefix="wall_visc")
 stepsize_cb = StepsizeCallback(cfl = 0.9)
 cbset       = CallbackSet(info_cb, save_cb, stepsize_cb, post_cb)
 
