@@ -37,7 +37,7 @@ WAT_DIR           = Path("watanabe")       # digitised csv files
 FIG_NAME          = "sph_vs_watanabe.png"
 
 TIME_WINDOW_S     = (0.6, 1.2)             # analysis window [s]
-BIN_RANGE_MM      = (0.05, 5.0)            # histogram limits (matches paper)
+#BIN_RANGE_MM      = (0.05, 5.0)            # histogram limits (matches paper)
 N_BINS            = 60                     # number of log bins
 
 # Tank dimensions (used for number‑density normalisation)
@@ -102,11 +102,14 @@ sph_radii_mm = collect_radii(POST_PATH, TIME_WINDOW_S)
 if not sph_radii_mm:
     raise RuntimeError("No droplet radii found in the chosen time window — adjust TIME_WINDOW_S?")
 print(f"  gathered {len(sph_radii_mm):,} radii between {TIME_WINDOW_S} s")
+print(f"    with Min radius = {min(sph_radii_mm):.1f} mm,  Max radius = {max(sph_radii_mm):.1f} mm")
 
 # ----------------------------------------------------------------------------
 # 4. Build SPH number‑density PDF
 # ----------------------------------------------------------------------------
-log_bins = np.logspace(np.log10(BIN_RANGE_MM[0]), np.log10(BIN_RANGE_MM[1]), N_BINS)
+r_min, r_max = min(sph_radii_mm), max(sph_radii_mm)
+BIN_RANGE_MM = (r_min*0.9, r_max*1.1)
+log_bins = np.logspace(np.log10(r_min*0.9), np.log10(r_max*1.1), N_BINS)
 hist, edges = np.histogram(sph_radii_mm, bins=log_bins)
 centres_mm  = 0.5 * (edges[1:] + edges[:-1])
 vol_m3      = TANK_WIDTH_M * TANK_DEPTH_M * OBS_DURATION_S
@@ -116,24 +119,34 @@ pdf = hist / np.diff(edges) / vol_m3
 # 5. Plot: SPH curve + reference slopes + Watanabe data
 # ----------------------------------------------------------------------------
 fig, ax = plt.subplots(figsize=(6, 4))
-ax.loglog(centres_mm, pdf, "s", label="SPH Δx=5 mm")
 
-# Visual slopes
+# Plot SPH PDF only where pdf>0 to avoid useless markers
+mask = pdf > 0
+ax.loglog(centres_mm[mask], pdf[mask], "s", label="SPH Δx=5 mm")
+
+# Visual slope guides
 ref_r = np.array([0.1, 1.0])
 ax.loglog(ref_r, 1e5 * ref_r**(-2),  "k--", label="slope −2")
 ax.loglog(ref_r, 1e5 * ref_r**(-2.5), "k:",  label="slope −5/2")
 
-# # Watanabe digitised CSVs (optional)
-# for csv_file in sorted(WAT_DIR.glob("*.csv")):
-#     df = pd.read_csv(csv_file, header=None, names=["radius_mm", "N_d"])
-#     label = csv_file.stem.replace("_", " ")
-#     ax.loglog(df.radius_mm, df.N_d, label=f"W&I {label}")
+# ---------------------------------------------------------
+# Optional: overlay digitised Watanabe curves (if present)
+# ---------------------------------------------------------
+if WAT_DIR.exists():
+    for csv_file in sorted(WAT_DIR.glob("*.csv")):
+        try:
+            df = pd.read_csv(csv_file, header=None, names=["radius_mm", "N_d"])
+            ax.loglog(df.radius_mm, df.N_d, label=f"W&I {csv_file.stem.replace('_',' ')}")
+        except Exception as exc:
+            print(f"Warning: could not read {csv_file}: {exc}")
 
-# Aesthetics
+# Aesthetics – dynamic y‑min so the plot never looks empty
+nonzero_pdf = pdf[mask]
+y_min = nonzero_pdf.min()*0.5 if nonzero_pdf.size>0 else 1
 ax.set_xlabel("Droplet radius r [mm]")
 ax.set_ylabel("Number density N_d [m⁻³ mm⁻¹]")
 ax.set_xlim(BIN_RANGE_MM)
-ax.set_ylim(bottom=1e2)
+ax.set_ylim(bottom=y_min)
 ax.grid(True, which="both", lw=0.25)
 ax.legend(fontsize="small")
 fig.tight_layout()

@@ -27,12 +27,12 @@ const W_water        = 0.4            # [m]  initial column width
 const tank_height    = 2.0            # [m]
 const tank_length    = 1.5            # [m]
 
-const resolution_factor      = 100     # particles per H_water
-const Δx_f                   = H_water / resolution_factor       # ≈ 0.005 m
+const resolution_factor      = 150     # particles per H_water
+const Δx_f                   = H_water / resolution_factor       # ≈ 0.003 m
 const boundary_layers        = 4
 const Δx_b                   = Δx_f
 
-const t_end   = 3.0
+const t_end   = 1.4
 const tspan   = (0.0, t_end)
 
 # Weakly-compressible equation of state
@@ -216,6 +216,25 @@ function droplet_radii(system, data, t)
     return radii
 end
 
+"Return droplet radii [m] in clusters whose centroid lies within ±Δz of a level."
+function droplet_radii_at_level(system, data ,t ,h)
+    coords=data.coordinates; clusters=airborne_clusters(coords)
+    radii=Float64[]; Δz=smoothing_length
+    for c in clusters
+        ys = coords[2,c]; ybar=mean(ys)
+        if abs(ybar-h)≤Δz
+            push!(radii, cluster_radius(c,data.mass[1]))
+        end
+    end
+    return radii
+end
+
+# Generate one function per height
+droplet_radii_z350 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.35)
+droplet_radii_z450 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.45)
+droplet_radii_z600 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.60)
+droplet_radii_z800 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.80)
+
 
 post_cb = PostprocessCallback(
     ; dt = 0.01,                        # every 10 ms → lightweight
@@ -225,7 +244,11 @@ post_cb = PostprocessCallback(
       splash_height,
       coarse_droplet_counts,
       max_vertical_velocity,
-      droplet_radii
+      droplet_radii,
+      droplet_radii_z350,
+      droplet_radii_z450,
+      droplet_radii_z600,
+      droplet_radii_z800
 )
 
 # =============================================================================
