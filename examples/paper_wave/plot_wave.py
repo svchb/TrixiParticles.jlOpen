@@ -100,7 +100,7 @@ slab_vol = TANK_WIDTH_M * TANK_DEPTH_M * SLAB_THICK_M
 n = len(heights)
 cols = 2
 rows = math.ceil(n / cols)
-fig, axes = plt.subplots(rows, cols, figsize=(6*cols, 4*rows), sharex=True, sharey=True)
+fig, axes = plt.subplots(rows, cols, figsize=(6*cols, 4*rows))
 axes_flat = axes.flatten()
 
 # ----------------------------------------------------------------------------
@@ -112,7 +112,7 @@ for idx, h in enumerate(heights):
     if data:
         hist, _ = np.histogram(data, bins=bins)
         pdf = hist / BIN_WIDTH_MM / slab_vol
-        ax.scatter(centres, pdf, s=10, label="SPH")
+        ax.scatter(centres, pdf, s=5, label="SPH")
     else:
         pdf = np.zeros_like(centres)
     # W&I overlay if available
@@ -132,17 +132,24 @@ for idx, h in enumerate(heights):
     ax.grid(True, which='both', linewidth=0.3)
     # axis labels
     row = idx // cols; col = idx % cols
-    if row == rows-1:
-        ax.set_xlabel("Droplet radius r [mm]")
-    if col == 0:
-        ax.set_ylabel("Number density N_d [m⁻³ mm⁻¹]")
-    ax.legend(fontsize='small')
+    ax.set_xlabel("Droplet radius r [mm]")
+    ax.set_ylabel("Number density N_d [m⁻³ mm⁻¹]")
+    ax.legend(fontsize='small', loc='upper left')
 
 # remove extra axes
 for j in range(n, rows*cols):
     fig.delaxes(axes_flat[j])
 
-fig.tight_layout()
+# ----------------------------------------------------------------------------
+# 7. Adjust layout to prevent label overlap
+# ----------------------------------------------------------------------------
+# Increase spacing between subplots
+fig.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1,
+                    wspace=0.3, hspace=0.4)
+
+# ----------------------------------------------------------------------------
+# 8. Save figure
+# ----------------------------------------------------------------------------
 print(f"Saving {FIG_NAME}…")
 fig.savefig(FIG_NAME, dpi=300)
 plt.close(fig)
