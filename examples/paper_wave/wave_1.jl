@@ -27,8 +27,8 @@ const W_water        = 0.4            # [m]  initial column width
 const tank_height    = 2.0            # [m]
 const tank_length    = 1.5            # [m]
 
-const resolution_factor      = 150     # particles per H_water
-const Δx_f                   = H_water / resolution_factor       # ≈ 0.003 m
+const resolution_factor      = 200     # particles per H_water
+const Δx_f                   = H_water / resolution_factor       # ≈ 0.0025 m
 const boundary_layers        = 4
 const Δx_b                   = Δx_f
 
@@ -106,37 +106,54 @@ A droplet is any connected set of particles whose *centres* are closer than
 `link_radius = 1.1*h` (where `h = smoothing_length`).  Only particles with
 `y > z_cut` are considered (i.e. detached from the bulk free‑surface).
 """
-function airborne_clusters(coords; z_cut = H_water)
-    # indices of particles above the cut‑off height
+function airborne_clusters(coords; z_cut=0.0, max_particles=ceil(Int, π*(0.01/2)^2 / (Δx_f^2)))
+    # Precompute all airborne particle indices
     airborne = findall(y -> y > z_cut, view(coords, 2, :))
     visited  = falses(size(coords, 2))
     clusters = Vector{Vector{Int}}()
-
-    # pre‑compute squared linking length (≈1.1 h)
-    link2 = (1.1 * smoothing_length)^2
+    link2    = (1.1 * smoothing_length)^2
 
     for seed in airborne
-        visited[seed] && continue                       # already in a cluster
-        cluster = Int[]; push!(cluster, seed)
+        visited[seed] && continue
+        # start a new cluster BFS
+        cluster = Int[seed]
         visited[seed] = true
         queue = [seed]
+        too_big = false
+
         while !isempty(queue)
             i = popfirst!(queue)
             for j in airborne
                 if !visited[j]
-                    dx = coords[1, i] - coords[1, j]
-                    dy = coords[2, i] - coords[2, j]
+                    dx = coords[1,i] - coords[1,j]
+                    dy = coords[2,i] - coords[2,j]
                     if dx*dx + dy*dy < link2
                         push!(cluster, j)
                         visited[j] = true
+                        # early bail if cluster too large
+                        if length(cluster) > max_particles
+                            too_big = true
+                            break
+                        end
                         push!(queue, j)
                     end
                 end
             end
+            too_big && break
         end
-        push!(clusters, cluster)
+
+        # only keep clusters under the size threshold
+        if !too_big
+            push!(clusters, cluster)
+        end
     end
     return clusters
+end
+
+"Equivalent spherical radius [m] of a cluster."
+function cluster_radius(c, mass)
+    area = length(c)*mass/fluid_density
+    return (6*area/π)^(1/3)/2      # radius = d/2
 end
 
 ##############################
@@ -219,9 +236,10 @@ end
 "Return droplet radii [m] in clusters whose centroid lies within ±Δz of a level."
 function droplet_radii_at_level(system, data ,t ,h)
     coords=data.coordinates; clusters=airborne_clusters(coords)
-    radii=Float64[]; Δz=smoothing_length
+    light_sheet_height = 0.1/2
+    radii=Float64[]; Δz=light_sheet_height
     for c in clusters
-        ys = coords[2,c]; ybar=mean(ys)
+        ys = coords[2,c]; ybar=sum(ys) / length(ys)
         if abs(ybar-h)≤Δz
             push!(radii, cluster_radius(c,data.mass[1]))
         end
@@ -230,6 +248,9 @@ function droplet_radii_at_level(system, data ,t ,h)
 end
 
 # Generate one function per height
+droplet_radii_z50 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.05)
+droplet_radii_z150 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.15)
+droplet_radii_z250 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.25)
 droplet_radii_z350 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.35)
 droplet_radii_z450 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.45)
 droplet_radii_z600 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.60)
@@ -237,7 +258,7 @@ droplet_radii_z800 = (sys,d,t)->droplet_radii_at_level(sys,d,t,0.80)
 
 
 post_cb = PostprocessCallback(
-    ; dt = 0.01,                        # every 10 ms → lightweight
+    ; dt = 0.02,                        # 500hz
       output_directory = "post",       # JSON files in ./post/
       filename = "spray_metrics",      # → spray_metrics_*.json
       write_csv = true,
@@ -245,6 +266,9 @@ post_cb = PostprocessCallback(
       coarse_droplet_counts,
       max_vertical_velocity,
       droplet_radii,
+      droplet_radii_z50,
+      droplet_radii_z150,
+      droplet_radii_z250,
       droplet_radii_z350,
       droplet_radii_z450,
       droplet_radii_z600,

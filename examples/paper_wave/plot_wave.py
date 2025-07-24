@@ -1,156 +1,149 @@
-# spray_postprocess.py — build SPH droplet PDF & overlay Watanabe (robust version)
+# spray_postprocess_scatter.py — auto-detect heights & dynamic subplots (W&I Fig. 8b)
 """
-This script now supports **both** output styles produced by the Julia callback:
-
-1. **Snapshot‑per‑file** (`post/spray_metrics_0123.json`, one time step each) —
-   earlier prototype.
-2. **One big file** (`spray_metrics.json`) that stores *series* under
-   `droplet_radii_fluid_1` (as uploaded by you).
-
-It automatically detects which layout is present and merges radii falling in
-`TIME_WINDOW_S` before binning.
-
-Run with
-
-    python spray_postprocess.py
-
-and check the printed summary – you should no longer see the “No droplet radii
-found” error.
+Pool droplet radii per sampling height (auto-detected) and generate
+subplots for each detected height, plotting number density N_d [m⁻³ mm⁻¹]
+vs droplet radius r [mm], replicating W&I Fig. 8(b) style.
 """
-
-from __future__ import annotations
 import json
-import glob
+import re
 from pathlib import Path
-from typing import List
+from typing import List, Dict
 
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
+import math
 
 # ----------------------------------------------------------------------------
-# 1. User‑adjustable parameters
+# 1. User parameters
 # ----------------------------------------------------------------------------
 POST_PATH         = Path("/home/bergers1/dev/TrixiParticles.jlOpen/post")           # dir OR file; auto‑detected
-AGG_FILE_NAME     = Path("spray_metrics.json")
-WAT_DIR           = Path("watanabe")       # digitised csv files
-FIG_NAME          = "sph_vs_watanabe.png"
+AGG_FILE_NAME = "spray_metrics.json"
+WAT_DIR       = Path("watanabe")
+FIG_NAME      = "sph_vs_watanabe_subplots.png"
 
-TIME_WINDOW_S     = (0.6, 1.2)             # analysis window [s]
-#BIN_RANGE_MM      = (0.05, 5.0)            # histogram limits (matches paper)
-N_BINS            = 60                     # number of log bins
-
-# Tank dimensions (used for number‑density normalisation)
-TANK_WIDTH_M      = 1.5                    # spanwise width in the SPH domain
-TANK_DEPTH_M      = 1.0                    # out‑of‑plane depth (unit)
-OBS_DURATION_S    = TIME_WINDOW_S[1] - TIME_WINDOW_S[0]
-
+BIN_WIDTH_MM  = 0.001               # 1 µm bins
+TANK_WIDTH_M  = 1.5
+TANK_DEPTH_M  = 1.0
+SLAB_HALF_THICK_M = 0.0025          # m (for volume)
+SLAB_THICK_M      = SLAB_HALF_THICK_M * 2
 
 # ----------------------------------------------------------------------------
-# 2. Helper—flatten + convert units
+# 2. Load aggregated JSON to auto-detect height keys
 # ----------------------------------------------------------------------------
-
-def _extend_mm(acc: List[float], radii_m: list[float]) -> None:
-    """Append radii converted from metres → millimetres to *acc*."""
-    acc.extend(r * 1e3 for r in radii_m)
-
-
-def collect_radii(path: Path, t_range: tuple[float, float]) -> List[float]:
-    """Aggregate all droplet radii [mm] that fall inside *t_range*."""
-    radii_mm: List[float] = []
-
-    # ---------------------------------------------------------------------
-    # Case A — aggregated file (series stored under droplet_radii_fluid_1)
-    # ---------------------------------------------------------------------
-    agg_candidate = path / AGG_FILE_NAME if path.is_dir() else path
-    if agg_candidate.is_file():
-        with agg_candidate.open() as fp:
-            js = json.load(fp)
-        series = js.get("droplet_radii_fluid_1")
-        if series is None:
-            raise RuntimeError("Aggregated JSON missing 'droplet_radii_fluid_1'")
-        times  = series["time"]
-        values = series["values"]         # List[List[float]]
-        for t, rlist in zip(times, values):
-            if t_range[0] <= t <= t_range[1]:
-                _extend_mm(radii_mm, rlist)
-        return radii_mm
-
-    # ---------------------------------------------------------------------
-    # Case B — many snapshot files in a directory
-    # ---------------------------------------------------------------------
-    if not path.is_dir():
-        raise RuntimeError(f"{path} is neither a directory nor the expected big JSON file")
-
-    json_files = sorted(path.glob("spray_metrics_*.json"))
-    for file in json_files:
-        with file.open() as fp:
-            rec = json.load(fp)
-        t = rec.get("time")
-        if t is None:
-            continue  # skip malformed snapshot
-        if t_range[0] <= t <= t_range[1]:
-            _extend_mm(radii_mm, rec.get("droplet_radii", []))
-    return radii_mm
-
+post_dir = POST_PATH
+agg_path = post_dir / AGG_FILE_NAME
+if not agg_path.is_file():
+    raise FileNotFoundError(f"Aggregated JSON {agg_path} not found")
+with open(agg_path) as f:
+    js = json.load(f)
+# Regex to match droplet_radii_z<height> or droplet_radii_z<height>_fluid_1
+pattern = re.compile(r'^droplet_radii_z(\d+)(?:_fluid_1)?$')
+heights = []
+key_map: Dict[int, str] = {}
+for key in js.keys():
+    m = pattern.match(key)
+    if m:
+        h = int(m.group(1))
+        heights.append(h)
+        key_map[h] = key
+if not heights:
+    raise ValueError("No droplet_radii keys found in aggregated JSON")
+# Sort heights ascending
+heights = sorted(set(heights))
+# Prepare per-level storage
+per_level: Dict[int, List[float]] = {h: [] for h in heights}
 
 # ----------------------------------------------------------------------------
-# 3. Gather radii & bail out early if none
+# 3. Pool all radii per height
 # ----------------------------------------------------------------------------
-print("Collecting droplet radii …")
-sph_radii_mm = collect_radii(POST_PATH, TIME_WINDOW_S)
-if not sph_radii_mm:
-    raise RuntimeError("No droplet radii found in the chosen time window — adjust TIME_WINDOW_S?")
-print(f"  gathered {len(sph_radii_mm):,} radii between {TIME_WINDOW_S} s")
-print(f"    with Min radius = {min(sph_radii_mm):.1f} mm,  Max radius = {max(sph_radii_mm):.1f} mm")
+# Each series under js[key]['values'] is a list of radii lists
+for h in heights:
+    jkey = key_map[h]
+    series = js.get(jkey, {})
+    for rlist in series.get("values", []):
+        if isinstance(rlist, list):
+            per_level[h].extend([r*1e3 for r in rlist if isinstance(r, (int, float))])
+
+# Fallback: also scan snapshot files if aggregated missing any
+snapshot_files = sorted(post_dir.glob("spray_metrics_*.json"))
+for fn in snapshot_files:
+    rec = json.load(open(fn))
+    for h in heights:
+        # skip if already have series for this file
+        if key_map[h] in js:
+            continue
+        # try snapshot
+        key_plain = f"droplet_radii_z{h}"
+        key_fluid = f"{key_plain}_fluid_1"
+        for k in (key_plain, key_fluid):
+            if k in rec and isinstance(rec[k], list):
+                per_level[h].extend([r*1e3 for r in rec[k] if isinstance(r, (int, float))])
+
+# Report pooled counts
+print("Pooled droplet counts per detected height:")
+for h in heights:
+    arr = per_level[h]
+    print(f" z={h} mm: {len(arr):,} drops, r ∈ [{min(arr or [0]):.2f}, {max(arr or [0]):.2f}] mm")
 
 # ----------------------------------------------------------------------------
-# 4. Build SPH number‑density PDF
+# 4. Compute common histogram bins & slab volume
 # ----------------------------------------------------------------------------
-r_min, r_max = min(sph_radii_mm), max(sph_radii_mm)
-BIN_RANGE_MM = (r_min*0.9, r_max*1.1)
-log_bins = np.logspace(np.log10(r_min*0.9), np.log10(r_max*1.1), N_BINS)
-hist, edges = np.histogram(sph_radii_mm, bins=log_bins)
-centres_mm  = 0.5 * (edges[1:] + edges[:-1])
-vol_m3      = TANK_WIDTH_M * TANK_DEPTH_M * OBS_DURATION_S
-pdf = hist / np.diff(edges) / vol_m3
+all_r = np.hstack([per_level[h] for h in heights if per_level[h]]) if any(per_level.values()) else np.array([BIN_WIDTH_MM])
+r_max = all_r.max()
+bins = np.arange(0.0, r_max * 1.05 + BIN_WIDTH_MM, BIN_WIDTH_MM)
+centres = 0.5 * (bins[:-1] + bins[1:])
+slab_vol = TANK_WIDTH_M * TANK_DEPTH_M * SLAB_THICK_M
 
 # ----------------------------------------------------------------------------
-# 5. Plot: SPH curve + reference slopes + Watanabe data
+# 5. Setup subplot grid
 # ----------------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(6, 4))
+n = len(heights)
+cols = 2
+rows = math.ceil(n / cols)
+fig, axes = plt.subplots(rows, cols, figsize=(6*cols, 4*rows), sharex=True, sharey=True)
+axes_flat = axes.flatten()
 
-# Plot SPH PDF only where pdf>0 to avoid useless markers
-mask = pdf > 0
-ax.loglog(centres_mm[mask], pdf[mask], "s", label="SPH Δx=5 mm")
+# ----------------------------------------------------------------------------
+# 6. Plot each height
+# ----------------------------------------------------------------------------
+for idx, h in enumerate(heights):
+    ax = axes_flat[idx]
+    data = per_level[h]
+    if data:
+        hist, _ = np.histogram(data, bins=bins)
+        pdf = hist / BIN_WIDTH_MM / slab_vol
+        ax.scatter(centres, pdf, s=10, label="SPH")
+    else:
+        pdf = np.zeros_like(centres)
+    # W&I overlay if available
+    csv = WAT_DIR / f"z{h}.csv"
+    if csv.is_file():
+        import pandas as pd
+        df = pd.read_csv(csv, header=None, names=["r", "Nd"] )
+        ax.scatter(df.r, df.Nd, s=20, marker='x', color='tab:orange', label="W&I")
+    # reference slopes if data present
+    if np.any(pdf > 0):
+        ref_r = np.array([0.1, 10.0])
+        ax.loglog(ref_r, 1e5 * ref_r**-2.5, 'r--', label="slope −5/2")
+        ax.loglog(ref_r, 1e5 * ref_r**-2.0, 'b:',  label="slope −2")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_title(f"z = {h} mm")
+    ax.grid(True, which='both', linewidth=0.3)
+    # axis labels
+    row = idx // cols; col = idx % cols
+    if row == rows-1:
+        ax.set_xlabel("Droplet radius r [mm]")
+    if col == 0:
+        ax.set_ylabel("Number density N_d [m⁻³ mm⁻¹]")
+    ax.legend(fontsize='small')
 
-# Visual slope guides
-ref_r = np.array([0.1, 1.0])
-ax.loglog(ref_r, 1e5 * ref_r**(-2),  "k--", label="slope −2")
-ax.loglog(ref_r, 1e5 * ref_r**(-2.5), "k:",  label="slope −5/2")
+# remove extra axes
+for j in range(n, rows*cols):
+    fig.delaxes(axes_flat[j])
 
-# ---------------------------------------------------------
-# Optional: overlay digitised Watanabe curves (if present)
-# ---------------------------------------------------------
-if WAT_DIR.exists():
-    for csv_file in sorted(WAT_DIR.glob("*.csv")):
-        try:
-            df = pd.read_csv(csv_file, header=None, names=["radius_mm", "N_d"])
-            ax.loglog(df.radius_mm, df.N_d, label=f"W&I {csv_file.stem.replace('_',' ')}")
-        except Exception as exc:
-            print(f"Warning: could not read {csv_file}: {exc}")
-
-# Aesthetics – dynamic y‑min so the plot never looks empty
-nonzero_pdf = pdf[mask]
-y_min = nonzero_pdf.min()*0.5 if nonzero_pdf.size>0 else 1
-ax.set_xlabel("Droplet radius r [mm]")
-ax.set_ylabel("Number density N_d [m⁻³ mm⁻¹]")
-ax.set_xlim(BIN_RANGE_MM)
-ax.set_ylim(bottom=y_min)
-ax.grid(True, which="both", lw=0.25)
-ax.legend(fontsize="small")
 fig.tight_layout()
-
-print(f"Saving {FIG_NAME} …")
+print(f"Saving {FIG_NAME}…")
 fig.savefig(FIG_NAME, dpi=300)
+plt.close(fig)
 print("Done.")
