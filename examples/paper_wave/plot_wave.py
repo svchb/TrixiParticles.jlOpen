@@ -22,10 +22,9 @@ WAT_DIR       = Path("watanabe")
 FIG_NAME      = "sph_vs_watanabe_subplots.png"
 
 BIN_WIDTH_MM  = 0.001               # 1 µm bins
-TANK_WIDTH_M  = 1.5
-TANK_DEPTH_M  = 1.0
-SLAB_HALF_THICK_M = 0.0025          # m (for volume)
-SLAB_THICK_M      = SLAB_HALF_THICK_M * 2
+TANK_WIDTH_M  = 0.20          # 200 mm, to match the light box
+TANK_LENGTH_M  = 1.0
+SLAB_THICK_M      = 0.1
 
 # ----------------------------------------------------------------------------
 # 2. Load aggregated JSON to auto-detect height keys
@@ -65,19 +64,19 @@ for h in heights:
             per_level[h].extend([r*1e3 for r in rlist if isinstance(r, (int, float))])
 
 # Fallback: also scan snapshot files if aggregated missing any
-snapshot_files = sorted(post_dir.glob("spray_metrics_*.json"))
-for fn in snapshot_files:
-    rec = json.load(open(fn))
-    for h in heights:
-        # skip if already have series for this file
-        if key_map[h] in js:
-            continue
-        # try snapshot
-        key_plain = f"droplet_radii_z{h}"
-        key_fluid = f"{key_plain}_fluid_1"
-        for k in (key_plain, key_fluid):
-            if k in rec and isinstance(rec[k], list):
-                per_level[h].extend([r*1e3 for r in rec[k] if isinstance(r, (int, float))])
+# snapshot_files = sorted(post_dir.glob("spray_metrics_*.json"))
+# for fn in snapshot_files:
+#     rec = json.load(open(fn))
+#     for h in heights:
+#         # skip if already have series for this file
+#         if key_map[h] in js:
+#             continue
+#         # try snapshot
+#         key_plain = f"droplet_radii_z{h}"
+#         key_fluid = f"{key_plain}_fluid_1"
+#         for k in (key_plain, key_fluid):
+#             if k in rec and isinstance(rec[k], list):
+#                 per_level[h].extend([r*1e3 for r in rec[k] if isinstance(r, (int, float))])
 
 # Report pooled counts
 print("Pooled droplet counts per detected height:")
@@ -90,9 +89,9 @@ for h in heights:
 # ----------------------------------------------------------------------------
 all_r = np.hstack([per_level[h] for h in heights if per_level[h]]) if any(per_level.values()) else np.array([BIN_WIDTH_MM])
 r_max = all_r.max()
-bins = np.arange(0.0, r_max * 1.05 + BIN_WIDTH_MM, BIN_WIDTH_MM)
+bins = np.arange(0.1, r_max * 1.05 + BIN_WIDTH_MM, BIN_WIDTH_MM)
 centres = 0.5 * (bins[:-1] + bins[1:])
-slab_vol = TANK_WIDTH_M * TANK_DEPTH_M * SLAB_THICK_M
+slab_vol = TANK_WIDTH_M * TANK_LENGTH_M * SLAB_THICK_M
 
 # ----------------------------------------------------------------------------
 # 5. Setup subplot grid
@@ -121,11 +120,29 @@ for idx, h in enumerate(heights):
         import pandas as pd
         df = pd.read_csv(csv, header=None, names=["r", "Nd"] )
         ax.scatter(df.r, df.Nd, s=20, marker='x', color='tab:orange', label="W&I")
+
     # reference slopes if data present
-    if np.any(pdf > 0):
-        ref_r = np.array([0.1, 10.0])
-        ax.loglog(ref_r, 1e5 * ref_r**-2.5, 'r--', label="slope −5/2")
-        ax.loglog(ref_r, 1e5 * ref_r**-2.0, 'b:',  label="slope −2")
+    mask = pdf > 0
+    if mask.any():
+        idx_last = np.where(mask)[0][-1]
+        r0 = centres[idx_last]       # mm
+        log_r = np.log10(centres[mask])
+        log_pdf = np.log10(pdf[mask])
+        # slopes to test
+        for m, style, lbl in [(-2.5,'r--','slope −5/2'), (-2.0,'b:','slope −2')]:
+            b = np.mean(log_pdf - m*log_r)   # intercept in log10 space
+            ref_r = np.array([0.4, r0])      # mm → user‑requested range
+            pdf_line = 10**(b + m*np.log10(ref_r))
+            ax.loglog(ref_r, pdf_line, style, label=lbl)
+        # last = np.where(nonzero)[0][-1]     # index of last non-empty bin
+        # r0   = centres[last]
+        # print(f"r0 r0 = {r0:.3f} mm for z = {h} mm")
+        # pdf0 = pdf[last]
+
+        # ref_r = np.array([0.4, r0])
+        # ax.loglog(ref_r, pdf0*(ref_r/r0)**(-2.5), 'r--', label="slope −5/2")
+        # ax.loglog(ref_r, pdf0*(ref_r/r0)**(-2.0), 'b:',  label="slope −2")
+
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_title(f"z = {h} mm")
@@ -133,7 +150,7 @@ for idx, h in enumerate(heights):
     # axis labels
     row = idx // cols; col = idx % cols
     ax.set_xlabel("Droplet radius r [mm]")
-    ax.set_ylabel("Number density N_d [m⁻³ mm⁻¹]")
+    ax.set_ylabel(f"Nₙ [m⁻³ mm⁻¹]  (bin width {BIN_WIDTH_MM*1e3:.0f} µm)")
     ax.legend(fontsize='small', loc='upper left')
 
 # remove extra axes
