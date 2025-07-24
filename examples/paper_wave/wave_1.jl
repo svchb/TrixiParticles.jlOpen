@@ -94,63 +94,93 @@ function splash_height(system, data, t)
     return maximum(j -> data.coordinates[2, j], axes(data.coordinates, 2))
 end
 
-"""
-Compute a *coarse* droplet-size spectrum in three bins (>1 cm, 1–2 cm, 2–3 cm).
-The routine:
-  1. Select particles above the initial free-surface (y > H_water).
-  2. Group them by proximity (< 1.1 * smoothing_length) using a simple
-     breadth-first search (BFS).  Each group is treated as a droplet.
-  3. Convert each cluster’s mass to an *equivalent spherical diameter*  d = (6V/π)^{1/3}.
-  4. Count how many droplets fall into each bin.
-Returns a 3-element vector so PostprocessCallback stores three time-series.
-"""
-function coarse_droplet_counts(system, data, t)
-    coords   = data.coordinates
-    masses   = data.mass                  # per-particle mass (constant here)
-    np       = size(coords, 2)
-    above    = [j for j in 1:np if coords[2, j] > H_water]  # airborne particles
-    visited  = falses(np)
-    counts   = zeros(Int, 3)              # (1–2 cm, 2–3 cm, >3 cm)
-    rad2     = (1.1 * smoothing_length)^2 # neighbour distance²
+##############################
+# 1.  Clustering             #
+##############################
 
-    for seed in above
-        visited[seed] && continue
-        # -- BFS to build a cluster ------------------------------------------
-        cluster = Int[]
-        push!(cluster, seed)
+"""
+    airborne_clusters(coords; z_cut = H_water) -> Vector{Vector{Int}}
+
+Return a list of particle‑index clusters representing individual **droplets**.
+A droplet is any connected set of particles whose *centres* are closer than
+`link_radius = 1.1*h` (where `h = smoothing_length`).  Only particles with
+`y > z_cut` are considered (i.e. detached from the bulk free‑surface).
+"""
+function airborne_clusters(coords; z_cut = H_water)
+    # indices of particles above the cut‑off height
+    airborne = findall(y -> y > z_cut, view(coords, 2, :))
+    visited  = falses(size(coords, 2))
+    clusters = Vector{Vector{Int}}()
+
+    # pre‑compute squared linking length (≈1.1 h)
+    link2 = (1.1 * smoothing_length)^2
+
+    for seed in airborne
+        visited[seed] && continue                       # already in a cluster
+        cluster = Int[]; push!(cluster, seed)
         visited[seed] = true
-        q = [seed]
-        while !isempty(q)
-            i = popfirst!(q)
-            for j in above
+        queue = [seed]
+        while !isempty(queue)
+            i = popfirst!(queue)
+            for j in airborne
                 if !visited[j]
                     dx = coords[1, i] - coords[1, j]
                     dy = coords[2, i] - coords[2, j]
-                    if dx*dx + dy*dy < rad2
+                    if dx*dx + dy*dy < link2
                         push!(cluster, j)
                         visited[j] = true
-                        push!(q, j)
+                        push!(queue, j)
                     end
                 end
             end
         end
-        # -------------------------------------------------------------------
-        mass_cluster = length(cluster) * masses[1]          # 2-D mass proxy
-        area_cluster = mass_cluster / fluid_density         # 2-D proxy area
-        # Treat as a *cylinder of unit depth* -> equivalent diameter in 3-D
-        vol3d        = area_cluster      # 1-m thickness assumption
-        d_eq         = (6 * vol3d / π)^(1/3)                # [m]
-        if 0.01 ≤ d_eq < 0.02
+        push!(clusters, cluster)
+    end
+    return clusters
+end
+
+##############################
+# 2.  Coarse droplet counts  #
+##############################
+
+"""
+    coarse_droplet_counts(system, data, t) -> Vector{Int}
+
+Return a three‑element integer vector `[n₁, n₂, n₃]` where
+  • `n₁` counts droplets with 10–20 mm diameter,
+  • `n₂` counts droplets with 20–30 mm diameter,
+  • `n₃` counts droplets larger than 30 mm.
+Each droplet diameter is derived from the cluster area using the
+*equivalent‑sphere* relation `d = (6V/π)^{1/3}` with `V = area × 1 m` (unit
+out‑of‑plane width).
+"""
+function coarse_droplet_counts(system, data, t)
+    clusters = airborne_clusters(data.coordinates)
+    counts   = zeros(Int, 3)
+    for c in clusters
+        area = length(c) * data.mass[1] / fluid_density       # m² (2‑D proxy)
+        d_eq = (6 * area / π)^(1/3)                          # m
+        if 0.01 ≤ d_eq < 0.02       # 10–20 mm bin
             counts[1] += 1
-        elseif 0.02 ≤ d_eq < 0.03
+        elseif 0.02 ≤ d_eq < 0.03   # 20–30 mm bin
             counts[2] += 1
-        elseif d_eq ≥ 0.03
+        elseif d_eq ≥ 0.03          # >30 mm bin
             counts[3] += 1
         end
     end
     return counts
 end
 
+##############################
+# 3.  Max vertical velocity  #
+##############################
+
+"""
+    max_vertical_velocity(system, data, t) -> Float64
+
+Return the maximum absolute *vertical* velocity of particles above the free
+surface.  Returns `0.0` when no such particles exist (e.g. before impact).
+"""
 function max_vertical_velocity(system, data, t)
     coords = data.coordinates
     airborne_idx = findall(y -> y > H_water, view(coords, 2, :))
@@ -162,6 +192,31 @@ function max_vertical_velocity(system, data, t)
     end
 end
 
+##############################
+# 4.  Droplet radii list     #
+##############################
+
+"""
+    droplet_radii(system, data, t) -> Vector{Float64} | Vector{Any}
+
+Return the list of *equivalent spherical radii* (metres) for **all** airborne
+clusters in the current frame.  An **empty JSON list `[]`** is returned when no
+particles have detached, making downstream parsing trivial.
+"""
+function droplet_radii(system, data, t)
+    clusters = airborne_clusters(data.coordinates)
+    if isempty(clusters)
+        return []                       # empty *untyped* vector ⇒ `[]` in JSON
+    end
+    radii = Float64[]
+    for c in clusters
+        area = length(c) * data.mass[1] / fluid_density
+        push!(radii, (6 * area / π)^(1/3) / 2)           # radius = d/2 [m]
+    end
+    return radii
+end
+
+
 post_cb = PostprocessCallback(
     ; dt = 0.01,                        # every 10 ms → lightweight
       output_directory = "post",       # JSON files in ./post/
@@ -169,7 +224,8 @@ post_cb = PostprocessCallback(
       write_csv = true,
       splash_height,
       coarse_droplet_counts,
-      max_vertical_velocity
+      max_vertical_velocity,
+      droplet_radii
 )
 
 # =============================================================================
