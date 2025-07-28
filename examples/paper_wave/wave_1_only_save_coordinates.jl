@@ -28,7 +28,7 @@ const W_water        = 0.4            # [m]  initial column width
 const tank_height    = 2.0            # [m]
 const tank_length    = 1.5            # [m]
 
-const resolution_factor      = 150     # particles per H_water
+const resolution_factor      = 200     # particles per H_water
 const Δx_f                   = H_water / resolution_factor       # ≈ 0.0025 m
 const boundary_layers        = 4
 const Δx_b                   = Δx_f
