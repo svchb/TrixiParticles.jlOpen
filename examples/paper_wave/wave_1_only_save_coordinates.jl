@@ -58,8 +58,9 @@ smoothing_length  = 1.75 * Δx_f
 smoothing_kernel  = WendlandC2Kernel{2}()
 
 fluid_density_calc = ContinuityDensity()
-# This is bound to the realizable viscosity at the resolution.
-viscosity_model    = ViscosityAdami(nu=max(0.1*Δx_f, fluid_viscosity))
+# This is limited to the realizable viscosity at the resolution.
+nu_empirical=max(0.005*Δx_f, fluid_viscosity)
+viscosity_model    = ViscosityAdami(nu=nu_empirical)
 
 density_diffusion = DensityDiffusionAntuono(tank.fluid, delta = 0.1)
 
@@ -70,14 +71,14 @@ fluid_system = WeaklyCompressibleSPHSystem(tank.fluid, fluid_density_calc,
 
 boundary_density_calc = AdamiPressureExtrapolation()
 # This is just set to the physical value since it is not needed for stability.
-wall_viscosity_model  = ViscosityAdami(nu=fluid_viscosity)
+wall_viscosity_model  = ViscosityAdami(nu=100*nu_empirical)
 boundary_model = BoundaryModelDummyParticles(tank.boundary.density, tank.boundary.mass,
                                              state_equation = state_equation,
                                              boundary_density_calc, viscosity= wall_viscosity_model,
                                              smoothing_kernel, smoothing_length)
 
 boundary_system = BoundarySPHSystem(tank.boundary, boundary_model;
-                                    adhesion_coefficient = 0.0) # <- tweak >0 for wetting
+                                    adhesion_coefficient = 0.0)
 
 # =============================================================================
 # ==== 4.  Semidiscretization & ODE problem
@@ -265,18 +266,16 @@ function particle_cv(system, v_ode, u_ode, semi, t, h;
     u_sys = TrixiParticles.wrap_u(u_ode, system, semi)
     coords = TrixiParticles.current_coordinates(u_sys, system)
     N = size(coords, 2)
-
-    # 2. prep slab half‑thickness
     Δz = light_sheet_height / 2
 
-    # 3. pre‑allocate a Float64 buffer of length N
+    # 2. pre‑allocate a Float64 buffer of length N
     ys = coords[2, :]
     xs = coords[1, :]
     buf = Vector{Float64}(undef, N)
     # global buf
     cnt = 0
 
-    # 4. scan once, inbounds + SIMD, fill buffer
+    # 3. scan once, inbounds + SIMD, fill buffer
     @inbounds @simd for i in 1:N
         y = ys[i]
         # first test cheap x‑cut, then y‑slab
@@ -286,7 +285,7 @@ function particle_cv(system, v_ode, u_ode, semi, t, h;
         end
     end
 
-    # 5. return only the filled portion
+    # 4. return only the filled portion
     return @view buf[1:cnt]
 end
 
@@ -359,7 +358,7 @@ post_cb = PostprocessCallback(
 # =============================================================================
 # ==== 6.  Callbacks for stats & I/O
 info_cb     = InfoCallback(interval = 1000)            # every 100 timesteps
-save_cb     = SolutionSavingCallback(; dt = 0.025, output_directory = "output/coastal_wave_spray_2d", prefix="wall_visc")
+save_cb     = SolutionSavingCallback(; dt = 0.025, output_directory = "output/coastal_wave_spray_2d", prefix="visc0005_wallVisc100_200")
 stepsize_cb = StepsizeCallback(cfl = 0.9)
 cbset       = CallbackSet(info_cb, save_cb, stepsize_cb, post_cb)
 
