@@ -31,7 +31,7 @@ const W_water        = 0.4            # [m]  initial column width
 const tank_height    = 2.0            # [m]
 const tank_length    = 1.5            # [m]
 
-const resolution_factor      = 200     # particles per H_water
+const resolution_factor      = 100     # particles per H_water
 const Δx_f                   = H_water / resolution_factor       # ≈ 0.0025 m
 const boundary_layers        = 4
 const Δx_b                   = Δx_f
@@ -48,12 +48,15 @@ air_viscosity_model  = ViscosityAdami(nu=nu_ratio*nu_empirical)
 wall_viscosity_model  = ViscosityAdami(nu=50*nu_empirical)
 
 # Weakly-compressible equation of state
-const sound_speed   = 40 * sqrt(gravity * H_water)  # ≈ 44 m/s
-state_equation = StateEquationCole(; sound_speed, reference_density=water_density,
-                                   exponent=1, clip_negative_pressure=false)
+# const sound_speed   = 40 * sqrt(gravity * H_water)
+# const sound_speed  = 150.0 # survives crash but still penetration (+100% time)
+const sound_speed  = 100.0
 
-air_eos = StateEquationCole(; sound_speed, reference_density=air_density, exponent=1,
-                            clip_negative_pressure=false)
+state_equation = StateEquationCole(; sound_speed, reference_density=water_density,
+                                   exponent=7, background_pressure=100000, clip_negative_pressure=false)
+
+air_eos = StateEquationCole(; sound_speed, reference_density=air_density, exponent=1.4,
+                            background_pressure=5000, clip_negative_pressure=false)
 
 # =============================================================================
 # ==== 2.  Geometry & tank
@@ -104,7 +107,8 @@ air_system = WeaklyCompressibleSPHSystem(air_in_tank, fluid_density_calculator,
                                                 acceleration=(0.0, -gravity))
 
 
-boundary_density_calc = AdamiPressureExtrapolation()
+# boundary_density_calc = AdamiPressureExtrapolation(pressure_offset=1000)
+boundary_density_calc = ContinuityDensity()
 boundary_model = BoundaryModelDummyParticles(tank.boundary.density, tank.boundary.mass,
                                              state_equation = state_equation,
                                              boundary_density_calc, viscosity= wall_viscosity_model,
@@ -123,6 +127,11 @@ nhs_gpu = GridNeighborhoodSearch{2}(; cell_list)
 semi = Semidiscretization(fluid_system, air_system, boundary_system,
                           neighborhood_search = nhs_gpu,
                           parallelization_backend = CUDABackend())
+
+
+# semi = Semidiscretization(fluid_system, air_system, boundary_system,
+#                           neighborhood_search = GridNeighborhoodSearch{2}(update_strategy = nothing),
+#                           parallelization_backend = PolyesterBackend())
 
 ode = semidiscretize(semi, tspan)
 
@@ -167,7 +176,7 @@ post_cb = PostprocessCallback(
 
 # =============================================================================
 # ==== 6.  Callbacks for stats & I/O
-info_cb     = InfoCallback(interval = 1000)            # every 100 timesteps
+info_cb     = InfoCallback(interval = 250)            # every 100 timesteps
 save_cb     = SolutionSavingCallback(; dt = 0.025, output_directory = "output/coastal_wave_spray_2d", prefix="visc0001_wallVisc50_$resolution_factor")
 stepsize_cb = StepsizeCallback(cfl = 0.9)
 cbset       = CallbackSet(info_cb, save_cb, stepsize_cb, post_cb)
@@ -175,8 +184,16 @@ cbset       = CallbackSet(info_cb, save_cb, stepsize_cb, post_cb)
 # =============================================================================
 # ==== 7.  Solve
 @info "Starting simulation …"
-sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
-            dt = 1.0,       # initial dt – CFL will reduce it immediately
-            save_everystep = false,
-            callback = cbset)
+# sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
+#             dt = 1.0,       # initial dt – CFL will reduce it immediately
+#             save_everystep = false,
+#             callback = cbset)
+
+sol = solve(ode, RDPK3SpFSAL35(),
+            abstol=1e-5, # Default abstol is 1e-6 (may need to be tuned to prevent boundary penetration)
+            reltol=1e-4, # Default reltol is 1e-3 (may need to be tuned to prevent boundary penetration)
+            dtmax=1e-2, # Limit stepsize to prevent crashing
+            maxiters=1e7,
+            save_everystep=false, callback=cbset);
+
 @info "Finished.  Results:  ./output/coastal_wave_spray_2d (VTK)  &  ./post (JSON)"
