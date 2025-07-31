@@ -100,10 +100,11 @@ fluid_system = WeaklyCompressibleSPHSystem(tank.fluid, fluid_density_calculator,
                                            smoothing_length; viscosity=water_viscosity_model, density_diffusion,
                                            acceleration = (0.0, -gravity))
 
-
+#density_diffusion_air = DensityDiffusionAntuono(air_in_tank, delta = 0.1)
 air_system = WeaklyCompressibleSPHSystem(air_in_tank, fluid_density_calculator,
                                                 air_eos, smoothing_kernel, smoothing_length,
                                                 viscosity=air_viscosity_model,
+                                                #density_diffusion=density_diffusion_air,
                                                 acceleration=(0.0, -gravity))
 
 
