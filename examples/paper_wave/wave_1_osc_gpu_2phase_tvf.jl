@@ -55,10 +55,16 @@ const tvf_pressure_water = 0.1 * sound_speed^2 * water_density
 const tvf_pressure_air = 0.1 * sound_speed^2 * air_density
 
 state_equation = StateEquationCole(; sound_speed, reference_density=water_density,
-                                   exponent=7, background_pressure=1000, clip_negative_pressure=false)
+                                   exponent=7, background_pressure=5000, clip_negative_pressure=false)
 
 air_eos = StateEquationCole(; sound_speed, reference_density=air_density, exponent=1.4,
-                            background_pressure=1000, clip_negative_pressure=false)
+                            background_pressure=5000, clip_negative_pressure=false)
+
+# state_equation = StateEquationAdaptiveCole(; machnumber=0.05, average_velocity=3, reference_density=water_density, exponent=7,
+#                             background_pressure=5000, clip_negative_pressure=false, max_sound_speed=300)
+
+# air_eos = StateEquationAdaptiveCole(; machnumber=0.05, average_velocity=3, reference_density=air_density, exponent=1.4,
+#                             background_pressure=5000, clip_negative_pressure=false, max_sound_speed=300)
 
 # =============================================================================
 # ==== 2.  Geometry & tank
@@ -95,7 +101,7 @@ smoothing_kernel  = WendlandC2Kernel{2}()
 
 fluid_density_calculator = ContinuityDensity()
 
-density_diffusion = DensityDiffusionAntuono(tank.fluid, delta = 0.1)
+# density_diffusion = DensityDiffusionAntuono(tank.fluid, delta = 0.1)
 
 fluid_system = WeaklyCompressibleSPHSystem(tank.fluid, fluid_density_calculator,
                                            state_equation, smoothing_kernel,
@@ -110,7 +116,7 @@ air_system = WeaklyCompressibleSPHSystem(air_in_tank, fluid_density_calculator,
                                                 air_eos, smoothing_kernel,
                                                 smoothing_length,
                                                 viscosity=air_viscosity_model,
-                                                transport_velocity=TransportVelocityAdami(tvf_pressure_air),
+                                                # transport_velocity=TransportVelocityAdami(tvf_pressure_air),
                                                 acceleration=(0.0, -gravity))
 
 
@@ -134,7 +140,9 @@ nhs_gpu = GridNeighborhoodSearch{2}(; cell_list)
 semi = Semidiscretization(fluid_system, air_system, boundary_system,
                           neighborhood_search = nhs_gpu,
                           parallelization_backend = CUDABackend())
-
+# semi = Semidiscretization(fluid_system, air_system, boundary_system,
+#                           neighborhood_search = nhs_gpu,
+#                           parallelization_backend = PolyesterBackend())
 
 # semi = Semidiscretization(fluid_system, air_system, boundary_system,
 #                           neighborhood_search = GridNeighborhoodSearch{2}(update_strategy = nothing),
@@ -184,9 +192,9 @@ post_cb = PostprocessCallback(
 # =============================================================================
 # ==== 6.  Callbacks for stats & I/O
 info_cb     = InfoCallback(interval = 250)            # every 100 timesteps
-save_cb     = SolutionSavingCallback(; dt = 0.025, output_directory = "output/coastal_wave_spray_2d", prefix="visc0001_wallVisc50_$resolution_factor")
+save_cb     = SolutionSavingCallback(; dt = 0.025, output_directory = "output/coastal_wave_spray_2d", prefix = "tvf_c$(Int(sound_speed))_r$(resolution_factor)")
 stepsize_cb = StepsizeCallback(cfl = 0.9)
-cbset       = CallbackSet(info_cb, save_cb, stepsize_cb, post_cb)
+cbset       = CallbackSet(info_cb, save_cb, stepsize_cb, post_cb, UpdateCallback())
 
 # =============================================================================
 # ==== 7.  Solve

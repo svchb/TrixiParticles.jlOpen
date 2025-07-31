@@ -53,7 +53,7 @@ wall_viscosity_model  = ViscosityAdami(nu=50*nu_empirical)
 const sound_speed  = 100.0
 
 state_equation = StateEquationCole(; sound_speed, reference_density=water_density,
-                                   exponent=7, background_pressure=100000, clip_negative_pressure=false)
+                                   exponent=7, background_pressure=5000, clip_negative_pressure=false)
 
 air_eos = StateEquationCole(; sound_speed, reference_density=air_density, exponent=1.4,
                             background_pressure=5000, clip_negative_pressure=false)
@@ -108,8 +108,8 @@ air_system = WeaklyCompressibleSPHSystem(air_in_tank, fluid_density_calculator,
                                                 acceleration=(0.0, -gravity))
 
 
-# boundary_density_calc = AdamiPressureExtrapolation(pressure_offset=1000)
-boundary_density_calc = ContinuityDensity()
+boundary_density_calc = AdamiPressureExtrapolation(pressure_offset=0)
+# boundary_density_calc = ContinuityDensity()
 boundary_model = BoundaryModelDummyParticles(tank.boundary.density, tank.boundary.mass,
                                              state_equation = state_equation,
                                              boundary_density_calc, viscosity= wall_viscosity_model,
