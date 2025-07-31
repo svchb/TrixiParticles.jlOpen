@@ -32,16 +32,22 @@ function particle_shifting!(integrator)
     v_ode, u_ode = integrator.u.x
     dt = integrator.dt
     # Internal cache vector, which is safe to use as temporary array
-    u_cache = first(get_tmp_cache(integrator))
+    vu_cache = first(get_tmp_cache(integrator))
 
-    # Update quantities that are stored in the systems. These quantities (e.g. pressure)
-    # still have the values from the last stage of the previous step if not updated here.
-    update_systems_and_nhs(v_ode, u_ode, semi, t; update_from_callback=true)
+    @trixi_timeit timer() "particle shifting callback" begin
+        # Update quantities that are stored in the systems. These quantities (e.g. pressure)
+        # still have the values from the last stage of the previous step if not updated here.
+        @trixi_timeit timer() "update systems and nhs" begin
+            # Don't create sub-timers here to avoid cluttering the timer output
+            @notimeit timer() update_systems_and_nhs(v_ode, u_ode, semi, t;
+                                                     update_from_callback=true)
+        end
 
-    @trixi_timeit timer() "particle shifting" foreach_system(semi) do system
-        u = wrap_u(u_ode, system, semi)
-        v = wrap_v(v_ode, system, semi)
-        particle_shifting!(u, v, system, v_ode, u_ode, semi, u_cache, dt)
+        @trixi_timeit timer() "particle shifting" foreach_system(semi) do system
+            u = wrap_u(u_ode, system, semi)
+            v = wrap_v(v_ode, system, semi)
+            particle_shifting!(u, v, system, v_ode, u_ode, semi, vu_cache, dt)
+        end
     end
 
     # Tell OrdinaryDiffEq that `u` has been modified
@@ -55,18 +61,23 @@ function particle_shifting!(u, v, system, v_ode, u_ode, semi, u_cache, dt)
 end
 
 function particle_shifting!(u, v, system::FluidSystem, v_ode, u_ode, semi,
-                            u_cache, dt)
+                            vu_cache, dt)
     # Wrap the cache vector to an NDIMS x NPARTICLES matrix.
     # We need this buffer because we cannot safely update `u` while iterating over it.
+    _, u_cache = vu_cache.x
     delta_r = wrap_u(u_cache, system, semi)
     set_zero!(delta_r)
 
-    v_max = maximum(particle -> norm(current_velocity(v, system, particle)),
-                    eachparticle(system))
+    # This has similar performance to `maximum(..., eachparticle(system))`,
+    # but is GPU-compatible.
+    v_max = maximum(x -> sqrt(dot(x, x)),
+                    reinterpret(reshape, SVector{ndims(system), eltype(v)},
+                                current_velocity(v, system)))
 
     # TODO this needs to be adapted to multi-resolution.
     # Section 3.2 explains what else needs to be changed.
-    Wdx = smoothing_kernel(system, particle_spacing(system, 1), 1)
+    dx = particle_spacing(system, 1)
+    Wdx = smoothing_kernel(system, dx, 1)
     h = smoothing_length(system, 1)
 
     foreach_system(semi) do neighbor_system
@@ -88,12 +99,20 @@ function particle_shifting!(u, v, system::FluidSystem, v_ode, u_ode, semi,
             grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
 
             # According to p. 29 below Eq. 9
-            R = 0.2
+            R = 2 // 10
             n = 4
 
             # Eq. 7 in Sun et al. (2017).
-            # CFL * Ma can be rewritten as Δt * v_max / h (see p. 29, right above Eq. 9).
-            delta_r_ = -dt * v_max * 4 * h * (1 + R * (kernel / Wdx)^n) *
+            # According to the paper, CFL * Ma can be rewritten as Δt * v_max / h
+            # (see p. 29, right above Eq. 9), but this does not work when scaling h.
+            # When setting CFL * Ma = Δt * v_max / (2 * Δx), PST works as expected
+            # for both small and large smoothing length factors.
+            # We need to scale
+            # - quadratically with the smoothing length,
+            # - linearly with the particle spacing,
+            # - linearly with the time step.
+            # See https://github.com/trixi-framework/TrixiParticles.jl/pull/834.
+            delta_r_ = -dt * v_max * (2 * h)^2 / (2 * dx) * (1 + R * (kernel / Wdx)^n) *
                        m_b / (rho_a + rho_b) * grad_kernel
 
             # Write into the buffer

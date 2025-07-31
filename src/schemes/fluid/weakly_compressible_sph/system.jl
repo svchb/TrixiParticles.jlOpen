@@ -247,6 +247,23 @@ end
 
 system_correction(system::WeaklyCompressibleSPHSystem) = system.correction
 
+@inline function current_velocity(v, system::WeaklyCompressibleSPHSystem)
+    return current_velocity(v, system.density_calculator, system)
+end
+
+@inline function current_velocity(v, ::SummationDensity,
+                                  system::WeaklyCompressibleSPHSystem)
+    # When using `SummationDensity`, `v` contains only the velocity
+    return v
+end
+
+@inline function current_velocity(v, ::ContinuityDensity,
+                                  system::WeaklyCompressibleSPHSystem)
+    # When using `ContinuityDensity`, the velocity is stored
+    # in the first `ndims(system)` rows of `v`.
+    return view(v, 1:ndims(system), :)
+end
+
 @inline function current_density(v, system::WeaklyCompressibleSPHSystem)
     return current_density(v, system.density_calculator, system)
 end
@@ -273,6 +290,7 @@ function update_quantities!(system::WeaklyCompressibleSPHSystem, v, u,
                             v_ode, u_ode, semi, t)
     (; density_calculator, density_diffusion, correction) = system
 
+    update_speed_of_sound!(system, v, system.state_equation)
     compute_density!(system, u, u_ode, semi, density_calculator)
 
     @trixi_timeit timer() "update density diffusion" update!(density_diffusion, v, u,
@@ -304,6 +322,10 @@ function update_final!(system::WeaklyCompressibleSPHSystem, v, u, v_ode, u_ode, 
     # Surface normal of neighbor and boundary needs to have been calculated already
     compute_curvature!(system, surface_tension, v, u, v_ode, u_ode, semi, t)
     compute_stress_tensors!(system, surface_tension, v, u, v_ode, u_ode, semi, t)
+
+    # Check that TVF is only used together with `UpdateCallback`
+    check_tvf_configuration(system, system.transport_velocity, v, u, v_ode, u_ode, semi, t;
+                            update_from_callback)
 end
 
 function kernel_correct_density!(system::WeaklyCompressibleSPHSystem, v, u, v_ode, u_ode,

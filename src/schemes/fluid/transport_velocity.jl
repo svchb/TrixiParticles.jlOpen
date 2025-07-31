@@ -44,12 +44,10 @@ end
 function write_v0!(v0, system::FluidSystem, ::TransportVelocityAdami)
     (; initial_condition) = system
 
-    # for particle in eachparticle(system)
-        # Write particle velocities
-        for dim in 1:ndims(system)
-            v0[ndims(system) + dim, :] = initial_condition.velocity[dim, :]
-        end
-    # end
+    # Write particle velocities
+    for dim in 1:ndims(system)
+        v0[ndims(system) + dim, :] = initial_condition.velocity[dim, :]
+    end
 
     return v0
 end
@@ -165,19 +163,15 @@ function update_callback_used!(system, transport_velocity)
     system.cache.update_callback_used[] = true
 end
 
-function update_final!(system::FluidSystem, v, u, v_ode, u_ode, semi, t;
-                       update_from_callback=false)
-    update_final!(system, system.transport_velocity,
-                  v, u, v_ode, u_ode, semi, t; update_from_callback)
-end
-
-function update_final!(system::FluidSystem, ::Nothing,
-                       v, u, v_ode, u_ode, semi, t; update_from_callback=false)
+function check_tvf_configuration(system::FluidSystem, ::Nothing,
+                                 v, u, v_ode, u_ode, semi, t; update_from_callback=false)
     return system
 end
 
-function update_final!(system::FluidSystem, ::TransportVelocityAdami,
-                       v, u, v_ode, u_ode, semi, t; update_from_callback=false)
+function check_tvf_configuration(system::FluidSystem, ::TransportVelocityAdami,
+                                 v, u, v_ode, u_ode, semi, t; update_from_callback=false)
+    # The `UpdateCallback` will set `system.cache.update_callback_used[]` to `true`
+    # in the initialization. However, other callbacks might update the system first, hence `update_from_callback`.
     if !update_from_callback && !(system.cache.update_callback_used[])
         throw(ArgumentError("`UpdateCallback` is required when using `TransportVelocityAdami`"))
     end
