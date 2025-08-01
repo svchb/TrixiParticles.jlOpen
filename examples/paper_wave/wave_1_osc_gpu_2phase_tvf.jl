@@ -194,7 +194,7 @@ post_cb = PostprocessCallback(
 info_cb     = InfoCallback(interval = 250)            # every 100 timesteps
 save_cb     = SolutionSavingCallback(; dt = 0.025, output_directory = "output/coastal_wave_spray_2d", prefix = "tvf_c$(Int(sound_speed))_r$(resolution_factor)")
 stepsize_cb = StepsizeCallback(cfl = 0.9)
-cbset       = CallbackSet(info_cb, save_cb, stepsize_cb, post_cb, UpdateCallback())
+cbset       = CallbackSet(info_cb, save_cb, stepsize_cb, post_cb)
 
 # =============================================================================
 # ==== 7.  Solve
