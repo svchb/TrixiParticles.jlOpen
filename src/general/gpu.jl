@@ -20,6 +20,7 @@ Adapt.@adapt_structure TotalLagrangianSPHSystem
 Adapt.@adapt_structure BoundaryZone
 Adapt.@adapt_structure SystemBuffer
 Adapt.@adapt_structure OpenBoundarySPHSystem
+Adapt.@adapt_structure StateEquationAdaptiveCole
 
 KernelAbstractions.get_backend(::PtrArray) = KernelAbstractions.CPU()
 KernelAbstractions.get_backend(system::System) = KernelAbstractions.get_backend(system.mass)

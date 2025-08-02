@@ -50,21 +50,21 @@ wall_viscosity_model  = ViscosityAdami(nu=50*nu_empirical)
 # Weakly-compressible equation of state
 # const sound_speed   = 40 * sqrt(gravity * H_water)
 # const sound_speed  = 150.0 # survives crash but still penetration (+100% time)
-const sound_speed  = 100.0
+const sound_speed  = 60.0
 const tvf_pressure_water = 0.1 * sound_speed^2 * water_density
 const tvf_pressure_air = 0.1 * sound_speed^2 * air_density
 
-state_equation = StateEquationCole(; sound_speed, reference_density=water_density,
-                                   exponent=7, background_pressure=5000, clip_negative_pressure=false)
+# state_equation = StateEquationCole(; sound_speed, reference_density=water_density,
+#                                    exponent=7, background_pressure=5000, clip_negative_pressure=false)
 
 air_eos = StateEquationCole(; sound_speed, reference_density=air_density, exponent=1.4,
-                            background_pressure=5000, clip_negative_pressure=false)
+                            background_pressure=0.0, clip_negative_pressure=false)
 
-# state_equation = StateEquationAdaptiveCole(; machnumber=0.05, average_velocity=3, reference_density=water_density, exponent=7,
-#                             background_pressure=5000, clip_negative_pressure=false, max_sound_speed=300)
+state_equation = StateEquationAdaptiveCole(; machnumber=0.05, average_velocity=2.0, reference_density=water_density, exponent=7.0,
+                            background_pressure=0.0, clip_negative_pressure=false, max_sound_speed=200.0)
 
-# air_eos = StateEquationAdaptiveCole(; machnumber=0.05, average_velocity=3, reference_density=air_density, exponent=1.4,
-#                             background_pressure=5000, clip_negative_pressure=false, max_sound_speed=300)
+# air_eos = StateEquationAdaptiveCole(; machnumber=0.1, average_velocity=3.0, reference_density=air_density, exponent=1.4,
+#                             background_pressure=5000.0, clip_negative_pressure=false, max_sound_speed=300.0)
 
 # =============================================================================
 # ==== 2.  Geometry & tank
@@ -116,7 +116,7 @@ air_system = WeaklyCompressibleSPHSystem(air_in_tank, fluid_density_calculator,
                                                 air_eos, smoothing_kernel,
                                                 smoothing_length,
                                                 viscosity=air_viscosity_model,
-                                                # transport_velocity=TransportVelocityAdami(tvf_pressure_air),
+                                                transport_velocity=TransportVelocityAdami(tvf_pressure_air),
                                                 acceleration=(0.0, -gravity))
 
 
@@ -192,7 +192,7 @@ post_cb = PostprocessCallback(
 # =============================================================================
 # ==== 6.  Callbacks for stats & I/O
 info_cb     = InfoCallback(interval = 250)            # every 100 timesteps
-save_cb     = SolutionSavingCallback(; dt = 0.025, output_directory = "output/coastal_wave_spray_2d", prefix = "tvf_c$(Int(sound_speed))_r$(resolution_factor)")
+save_cb     = SolutionSavingCallback(; dt = 0.025, output_directory = "output/coastal_wave_spray_2d", prefix = "dtvf_c$(Int(sound_speed))_r$(resolution_factor)")
 stepsize_cb = StepsizeCallback(cfl = 0.9)
 cbset       = CallbackSet(info_cb, save_cb, stepsize_cb, post_cb)
 

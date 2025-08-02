@@ -15,22 +15,24 @@ The speed of sound is initialized as average_velocity / machnumber.
 - `background_pressure=0.0`: A constant background pressure.
 - `clip_negative_pressure=false`: When true, negative pressure values are clipped to 0.0. This can prevent spurious surface tension effects but might allow for unphysical fluid rarefaction.
 """
-struct StateEquationAdaptiveCole{ELTYPE, CLIP} # Boolean to clip negative pressure
-    sound_speed_ref     :: Base.RefValue{ELTYPE}
-    machnumber          :: ELTYPE
-    average_velocity    :: ELTYPE
-    max_sound_speed     :: ELTYPE
-    exponent            :: ELTYPE
-    reference_density   :: ELTYPE
-    background_pressure :: ELTYPE
+struct StateEquationAdaptiveCole{ELTYPE <: Real, S} # Boolean to clip negative pressure
+    sound_speed_ref        :: S
+    machnumber             :: ELTYPE
+    average_velocity       :: ELTYPE
+    max_sound_speed        :: ELTYPE
+    exponent               :: ELTYPE
+    reference_density      :: ELTYPE
+    background_pressure    :: ELTYPE
+    # clip_negative_pressure :: CLIP
+end
 
-    function StateEquationAdaptiveCole(; machnumber=0.1, average_velocity=1, reference_density, max_sound_speed=100, exponent,
-                               background_pressure=0.0, clip_negative_pressure=false)
-        sound_speed = average_velocity / machnumber
-        new{typeof(machnumber),
-            clip_negative_pressure}(Ref(sound_speed), machnumber, average_velocity, max_sound_speed, exponent, reference_density,
-                                    background_pressure)
-    end
+function StateEquationAdaptiveCole(; machnumber=0.1, average_velocity=1.0, reference_density, max_sound_speed=100.0, exponent,
+                            background_pressure=0.0, clip_negative_pressure=false)
+    sound_speed = average_velocity / machnumber
+    # return StateEquationAdaptiveCole(Ref(sound_speed), machnumber, average_velocity, max_sound_speed, exponent, reference_density,
+    #                             background_pressure, clip_negative_pressure)
+    return StateEquationAdaptiveCole(Ref(sound_speed), machnumber, average_velocity, max_sound_speed, exponent, reference_density,
+                                background_pressure)
 end
 
 # unwrap sound_speed on read
@@ -81,7 +83,7 @@ struct StateEquationCole{ELTYPE, CLIP} # Boolean to clip negative pressure
 end
 
 clip_negative_pressure(::StateEquationCole{<:Any, CLIP}) where {CLIP} = CLIP
-clip_negative_pressure(::StateEquationAdaptiveCole{<:Any, CLIP}) where {CLIP} = CLIP
+clip_negative_pressure(::StateEquationAdaptiveCole) = false
 
 function (state_equation::Union{StateEquationCole, StateEquationAdaptiveCole})(density)
     (; sound_speed, exponent, reference_density, background_pressure) = state_equation
