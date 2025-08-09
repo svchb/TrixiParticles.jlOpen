@@ -70,25 +70,43 @@ end
 function update_tvf!(system, transport_velocity::TransportVelocityAdami, v, u, v_ode,
                      u_ode, semi, t)
     (; cache, correction) = system
-    (; delta_v) = cache
+    (; delta_v, pn) = cache
     (; background_pressure) = transport_velocity
 
     sound_speed = system_sound_speed(system)
 
     set_zero!(delta_v)
 
+    # neighbor_system = system
+
     foreach_system(semi) do neighbor_system
+
+        # if neighbor_system !== system && system isa FluidSystem
+        #     return
+        # end
+
         v_neighbor = wrap_v(v_ode, neighbor_system, semi)
         u_neighbor = wrap_u(u_ode, neighbor_system, semi)
 
         system_coords = current_coordinates(u, system)
         neighbor_coords = current_coordinates(u_neighbor, neighbor_system)
 
+        # foreach_point_neighbor(system, neighbor_system, system_coords, neighbor_coords,
+        #                    semi;
+        #                    points=each_moving_particle(system)) do particle, neighbor,
+        #                                                            pos_diff, distance
+        #     kernel_val = smoothing_kernel(system, distance, particle)
+
+        #     # Summing kernel weighted by neighbor volume (m/ρ)
+        #     @inbounds pn[particle] += kernel_val *
+        #         (hydrodynamic_mass(neighbor_system, neighbor) / current_density(v_neighbor, neighbor_system, neighbor))
+        # end
+
         foreach_point_neighbor(system, neighbor_system, system_coords, neighbor_coords,
                                semi;
                                points=each_moving_particle(system)) do particle, neighbor,
                                                                        pos_diff, distance
-            m_a = @inbounds hydrodynamic_mass(neighbor_system, neighbor)
+            m_a = @inbounds hydrodynamic_mass(system, particle)
             m_b = @inbounds hydrodynamic_mass(neighbor_system, neighbor)
 
             rho_a = @inbounds current_density(v, system, particle)
@@ -115,7 +133,7 @@ function update_tvf!(system, transport_velocity::TransportVelocityAdami, v, u, v
             # We therefore use the function `pressure_acceleration` to compute the
             # shifting velocity according to the used pressure acceleration formulation.
             # In most cases, this will be
-            #   δv = -Δt * p_0 * m_b * (1 + 1) / (ρ_a * ρ_b^2) * ∇W_ab.
+            #   δv = -Δt * p_0 * m_b * (1 + 1) / (ρ_a * ρ_b) * ∇W_ab.
             #
             # In these papers, the shifting velocity is scaled by the time step Δt.
             # We generally want the spatial discretization to be independent of the time step.
@@ -128,10 +146,16 @@ function update_tvf!(system, transport_velocity::TransportVelocityAdami, v, u, v
             #   Δt <= 0.25 * h / c,
             # where h is the smoothing length and c is the sound speed.
             # Applying this equation as equality yields the shifting velocity
-            #   δv = -p_0 / 4 * h / c * m_b * (1 + 1) / (ρ_a * ρ_b^2) * ∇W_ab.
+            #   δv = -p_0 / 8 * h / c * m_b * (1 + 1) / (ρ_a * ρ_b^2) * ∇W_ab.
             # The last part is achieved by passing `p_a = 1` and `p_b = 1` to the
             # `pressure_acceleration` function.
-            delta_v_ = background_pressure / 4 * h / sound_speed *
+            # p0_a = background_pressure * max(0.0, 1.0 - pn[particle])
+            # delta_v_ = p0_a / 8 * h / sound_speed *
+            # pressure_acceleration(system, neighbor_system, particle, neighbor,
+            #                         m_a, m_b, 1, 1, rho_a, rho_b, pos_diff,
+            #                         distance, grad_kernel, correction)
+
+            delta_v_ = background_pressure / 8 * h / sound_speed *
                        pressure_acceleration(system, neighbor_system, particle, neighbor,
                                              m_a, m_b, 1, 1, rho_a, rho_b, pos_diff,
                                              distance, grad_kernel, correction)

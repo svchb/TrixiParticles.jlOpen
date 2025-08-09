@@ -285,6 +285,11 @@ function write2vtk!(vtk, v, u, t, system::FluidSystem; write_meta_data=true)
         vtk["color"] = system.cache.color
     end
 
+    if system.transport_velocity !== nothing
+        vtk["delta_v"] = [delta_v(system, particle)
+                                     for particle in active_particles(system)]
+    end
+
     if system.surface_tension isa SurfaceTensionMorris ||
        system.surface_tension isa SurfaceTensionMomentumMorris
         surface_tension = zeros((ndims(system), n_moving_particles(system)))

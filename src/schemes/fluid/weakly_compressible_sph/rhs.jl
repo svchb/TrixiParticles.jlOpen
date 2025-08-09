@@ -5,7 +5,7 @@
 function interact!(dv, v_particle_system, u_particle_system,
                    v_neighbor_system, u_neighbor_system,
                    particle_system::WeaklyCompressibleSPHSystem, neighbor_system, semi)
-    (; density_calculator, state_equation, correction) = particle_system
+    (; density_calculator, correction) = particle_system
 
     sound_speed = system_sound_speed(particle_system)
 
@@ -55,6 +55,16 @@ function interact!(dv, v_particle_system, u_particle_system,
                                                    v_neighbor_system,
                                                    particle_system, neighbor_system,
                                                    particle, neighbor)
+
+        # bullcrap
+        # if particle_system !== neighbor_system && particle_system isa WeaklyCompressibleSPHSystem &&
+        #    neighbor_system isa WeaklyCompressibleSPHSystem
+        #     if rho_a > 100
+        #         p_b = p_a
+        #     else
+        #         p_a = p_b
+        #     end
+        # end
 
         dv_pressure = pressure_correction *
                       pressure_acceleration(particle_system, neighbor_system,
@@ -129,7 +139,7 @@ end
                                                   m_b, rho_a, rho_b,
                                                   particle_system::WeaklyCompressibleSPHSystem,
                                                   neighbor_system, grad_kernel)
-    (; density_diffusion) = particle_system
+    (; density_diffusion, cache) = particle_system
 
     vdiff = current_velocity(v_particle_system, particle_system, particle) -
             current_velocity(v_neighbor_system, neighbor_system, neighbor)
@@ -145,6 +155,55 @@ end
                            grad_kernel)
     end
 end
+
+# @propagate_inbounds function continuity_equation!(dv, density_calculator::ContinuityDensity,
+#                                                   v_particle_system, v_neighbor_system,
+#                                                   particle, neighbor, pos_diff, distance,
+#                                                   m_b, rho_a, rho_b,
+#                                                   particle_system::WeaklyCompressibleSPHSystem,
+#                                                   neighbor_system, grad_kernel)
+#     (; density_diffusion, cache) = particle_system
+
+#     vdiff = current_velocity(v_particle_system, particle_system, particle) + delta_v(particle_system, particle) -
+#             (current_velocity(v_neighbor_system, neighbor_system, neighbor) + delta_v(neighbor_system, neighbor))
+
+#     dv[end, particle] += rho_a / rho_b * m_b * dot(vdiff, grad_kernel)
+
+#     # Artificial density diffusion should only be applied to system(s) representing a fluid
+#     # with the same physical properties i.e. density and viscosity.
+#     # TODO: shouldn't be applied to particles on the interface (depends on PR #539)
+#     if particle_system === neighbor_system
+#         density_diffusion!(dv, density_diffusion, v_particle_system, particle, neighbor,
+#                            pos_diff, distance, m_b, rho_a, rho_b, particle_system,
+#                            grad_kernel)
+#     end
+# end
+
+# @propagate_inbounds function continuity_equation!(dv, density_calculator::ContinuityDensity,
+#                                                   v_particle_system, v_neighbor_system,
+#                                                   particle, neighbor, pos_diff, distance,
+#                                                   m_b, rho_a, rho_b,
+#                                                   particle_system::WeaklyCompressibleSPHSystem,
+#                                                   neighbor_system, grad_kernel)
+#     (; density_diffusion) = particle_system
+
+#     va = current_velocity(v_particle_system,  particle_system,  particle)
+#     vb = current_velocity(v_neighbor_system, neighbor_system, neighbor)
+#     vdiff = va - vb
+
+#     vta = delta_v(particle_system, particle)
+#     # v_corr_a = vta - va  # (ṽ - v) at particle a
+
+#     # base continuity term (-ρ∇·v) + explicit correction (ṽ - v)·∇ρ
+#     dv[end, particle] += (rho_a / rho_b) * m_b * dot(vdiff, grad_kernel) +
+#                          m_b * dot(vta, grad_kernel)
+
+#     if particle_system === neighbor_system
+#         density_diffusion!(dv, density_diffusion, v_particle_system, particle, neighbor,
+#                            pos_diff, distance, m_b, rho_a, rho_b, particle_system,
+#                            grad_kernel)
+#     end
+# end
 
 @propagate_inbounds function particle_neighbor_pressure(v_particle_system,
                                                         v_neighbor_system,

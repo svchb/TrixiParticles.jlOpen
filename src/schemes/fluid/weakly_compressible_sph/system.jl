@@ -226,9 +226,10 @@ create_cache_tvf_wcsph(initial_condition, ::Nothing) = (;)
 function create_cache_tvf_wcsph(initial_condition, ::TransportVelocityAdami)
     delta_v = zeros(eltype(initial_condition), ndims(initial_condition),
                     nparticles(initial_condition))
+    pn = zeros(eltype(initial_condition), nparticles(initial_condition))
     update_callback_used = Ref(false)
 
-    return (; delta_v, update_callback_used)
+    return (; delta_v, pn, update_callback_used)
 end
 
 @inline function Base.eltype(::WeaklyCompressibleSPHSystem{<:Any, ELTYPE}) where {ELTYPE}
