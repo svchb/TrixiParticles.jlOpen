@@ -12,7 +12,7 @@ spacing_ratio   = 1
 dx_b            = dx / spacing_ratio
 
 # --- Physics -----------------------------------------------------------------
-g   = 9.81
+g   = 1.0
 tend = 2.0
 tspan = (0.0, tend)
 
