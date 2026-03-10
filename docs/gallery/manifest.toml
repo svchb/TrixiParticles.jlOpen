@@ -1,0 +1,335 @@
+# Gallery manifest
+#
+# This file intentionally uses a small schema.
+#
+# Required per-entry fields:
+# - id
+# - title
+# - example
+# - asset_strategy
+#
+# Derived by convention:
+# - category        := first path component of `example`
+# - outputs         := asset strategy defaults unless overridden per entry
+# - media_repo_path := "{category}/{id}"
+#
+# Optional per-entry fields, only when an example really needs them:
+# - caption = "..."
+# - outputs = ["poster"] or ["poster", "gif"]
+# - [entries.run]
+#   - overrides = { tspan = [0.0, 0.2], fluid_particle_spacing = 0.01 }
+#   - save_dt = 0.02
+#   - use this for time-span changes, resolution changes, and similar `trixi_include` kwargs
+#   - `tspan = [t0, t1]` is converted to a tuple before calling `trixi_include`
+#   - `save_dt` is optional and overrides the example's `SolutionSavingCallback(dt=...)`
+# - [entries.render]
+# - notes = "..."
+
+schema_version = 1
+
+[render_defaults]
+background = "white"
+color_scheme = "viridis"
+
+[path_conventions]
+derive_category_from_example = true
+derive_outputs_from_asset_strategy = true
+media_repo_path_pattern = "{category}/{id}"
+
+# Example optional run configuration:
+#
+# [[entries]]
+# id = "fluid_dam_break_2d"
+# title = "Dam Break 2D"
+# example = "fluid/dam_break_2d.jl"
+# asset_strategy = "paraview_animation"
+#
+# [entries.run]
+# overrides = { tspan = [0.0, 0.2], fluid_particle_spacing = 0.01 }
+# save_dt = 0.02
+
+[asset_strategies.paraview_animation]
+render_backend = "paraview"
+outputs = ["poster", "gif"]
+
+[asset_strategies.paraview_poster]
+render_backend = "paraview"
+outputs = ["poster"]
+
+[asset_strategies.julia_plot_poster]
+render_backend = "julia"
+outputs = ["poster"]
+
+[asset_strategies.benchmark_poster]
+render_backend = "julia"
+outputs = ["poster"]
+
+[[entries]]
+id = "dem_collapsing_sand_pile_3d"
+title = "Collapsing Sand Pile 3D"
+example = "dem/collapsing_sand_pile_3d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "dem_rectangular_tank_2d"
+title = "Rectangular Tank 2D"
+example = "dem/rectangular_tank_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_accelerated_tank_2d"
+title = "Accelerated Tank 2D"
+example = "fluid/accelerated_tank_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_dam_break_2d"
+title = "Dam Break 2D"
+example = "fluid/dam_break_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_dam_break_2d_iisph"
+title = "Dam Break 2D IISPH"
+example = "fluid/dam_break_2d_iisph.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_dam_break_2d_iisph_pressure_boundaries"
+title = "Dam Break 2D IISPH Pressure Boundaries"
+example = "fluid/dam_break_2d_iisph_pressure_boundaries.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_dam_break_2phase_2d"
+title = "Dam Break Two-Phase 2D"
+example = "fluid/dam_break_2phase_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_dam_break_3d"
+title = "Dam Break 3D"
+example = "fluid/dam_break_3d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_dam_break_oil_film_2d"
+title = "Dam Break Oil Film 2D"
+example = "fluid/dam_break_oil_film_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_falling_water_column_2d"
+title = "Falling Water Column 2D"
+example = "fluid/falling_water_column_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_falling_water_spheres_2d"
+title = "Falling Water Spheres 2D"
+example = "fluid/falling_water_spheres_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_falling_water_spheres_3d"
+title = "Falling Water Spheres 3D"
+example = "fluid/falling_water_spheres_3d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_hydrostatic_water_column_2d"
+title = "Hydrostatic Water Column 2D"
+example = "fluid/hydrostatic_water_column_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_hydrostatic_water_column_3d"
+title = "Hydrostatic Water Column 3D"
+example = "fluid/hydrostatic_water_column_3d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_lid_driven_cavity_2d"
+title = "Lid-Driven Cavity 2D"
+example = "fluid/lid_driven_cavity_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_moving_wall_2d"
+title = "Moving Wall 2D"
+example = "fluid/moving_wall_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_oscillating_drop_2d"
+title = "Oscillating Drop 2D"
+example = "fluid/oscillating_drop_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_periodic_array_of_cylinders_2d"
+title = "Periodic Array of Cylinders 2D"
+example = "fluid/periodic_array_of_cylinders_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_periodic_channel_2d"
+title = "Periodic Channel 2D"
+example = "fluid/periodic_channel_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_pipe_flow_2d"
+title = "Pipe Flow 2D"
+example = "fluid/pipe_flow_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_pipe_flow_3d"
+title = "Pipe Flow 3D"
+example = "fluid/pipe_flow_3d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_poiseuille_flow_2d"
+title = "Poiseuille Flow 2D"
+example = "fluid/poiseuille_flow_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_sphere_surface_tension_2d"
+title = "Sphere Surface Tension 2D"
+example = "fluid/sphere_surface_tension_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_sphere_surface_tension_3d"
+title = "Sphere Surface Tension 3D"
+example = "fluid/sphere_surface_tension_3d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_sphere_surface_tension_wall_2d"
+title = "Sphere Surface Tension Wall 2D"
+example = "fluid/sphere_surface_tension_wall_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fluid_taylor_green_vortex_2d"
+title = "Taylor-Green Vortex 2D"
+example = "fluid/taylor_green_vortex_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fsi_dam_break_gate_2d"
+title = "Dam Break Gate 2D"
+example = "fsi/dam_break_gate_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fsi_dam_break_plate_2d"
+title = "Dam Break Plate 2D"
+example = "fsi/dam_break_plate_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fsi_falling_sphere_2d"
+title = "Falling Sphere 2D"
+example = "fsi/falling_sphere_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fsi_falling_sphere_3d"
+title = "Falling Sphere 3D"
+example = "fsi/falling_sphere_3d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fsi_falling_spheres_2d"
+title = "Falling Spheres 2D"
+example = "fsi/falling_spheres_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fsi_falling_water_column_2d"
+title = "Falling Water Column 2D"
+example = "fsi/falling_water_column_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "fsi_hydrostatic_water_column_2d"
+title = "Hydrostatic Water Column 2D"
+example = "fsi/hydrostatic_water_column_2d.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "n_body_benchmark_reference"
+title = "N-Body Benchmark Reference"
+example = "n_body/n_body_benchmark_reference.jl"
+asset_strategy = "benchmark_poster"
+
+[[entries]]
+id = "n_body_benchmark_reference_faster"
+title = "N-Body Benchmark Reference Faster"
+example = "n_body/n_body_benchmark_reference_faster.jl"
+asset_strategy = "benchmark_poster"
+
+[[entries]]
+id = "n_body_benchmark_trixi"
+title = "N-Body Benchmark TrixiParticles"
+example = "n_body/n_body_benchmark_trixi.jl"
+asset_strategy = "benchmark_poster"
+
+[[entries]]
+id = "n_body_solar_system"
+title = "N-Body Solar System"
+example = "n_body/n_body_solar_system.jl"
+asset_strategy = "paraview_animation"
+
+[[entries]]
+id = "postprocessing_interpolation_plane"
+title = "Interpolation Plane"
+example = "postprocessing/interpolation_plane.jl"
+asset_strategy = "julia_plot_poster"
+
+[[entries]]
+id = "postprocessing_interpolation_point_line"
+title = "Interpolation Point and Line"
+example = "postprocessing/interpolation_point_line.jl"
+asset_strategy = "julia_plot_poster"
+
+[[entries]]
+id = "postprocessing_summary"
+title = "Postprocessing Summary"
+example = "postprocessing/postprocessing.jl"
+asset_strategy = "julia_plot_poster"
+
+[[entries]]
+id = "preprocessing_complex_shape_2d"
+title = "Complex Shape 2D"
+example = "preprocessing/complex_shape_2d.jl"
+asset_strategy = "julia_plot_poster"
+
+[[entries]]
+id = "preprocessing_complex_shape_3d"
+title = "Complex Shape 3D"
+example = "preprocessing/complex_shape_3d.jl"
+asset_strategy = "paraview_poster"
+
+[[entries]]
+id = "preprocessing_packing_2d"
+title = "Packing 2D"
+example = "preprocessing/packing_2d.jl"
+asset_strategy = "julia_plot_poster"
+
+[[entries]]
+id = "preprocessing_packing_3d"
+title = "Packing 3D"
+example = "preprocessing/packing_3d.jl"
+asset_strategy = "paraview_poster"
+
+[[entries]]
+id = "structure_oscillating_beam_2d"
+title = "Oscillating Beam 2D"
+example = "structure/oscillating_beam_2d.jl"
+asset_strategy = "paraview_animation"
