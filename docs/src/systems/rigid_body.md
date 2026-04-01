@@ -18,10 +18,19 @@ boundary model used for fluid-structure interaction; see
 [Boundary Models](@ref boundary_models) for that part of the rigid-body setup.
 
 `RigidContactModel` is the shared runtime model for both rigid-wall and rigid-rigid
-contact. In this first porting step, the shared normal spring-dashpot force and the
-contact diagnostics are active for both paths. The richer tangential/friction fields and
-the wall-specific controls are already part of the runtime model and documented on the
-type, but their stateful and wall-specific behavior is added in later steps of the port.
+contact. The shared normal spring-dashpot force and the contact diagnostics are active
+for both paths.
+
+Tangential history is updated through [`UpdateCallback`](@ref). This callback is required
+when a rigid contact model uses history-dependent tangential terms, that is, whenever
+`tangential_stiffness > 0` or `tangential_damping > 0`. The history keys are shared
+between rigid-wall and rigid-rigid contact, but the history-dependent force evaluation is
+currently enabled only for the rigid-wall path in this porting step.
+
+The runtime model also stores later wall-specific controls such as
+`resting_contact_projection` and `normalize_force_by_contact_patch`. These options remain
+part of the shared runtime representation, but their wall-specific behavior is added in
+later steps of the port.
 
 ```@autodocs
 Modules = [TrixiParticles]

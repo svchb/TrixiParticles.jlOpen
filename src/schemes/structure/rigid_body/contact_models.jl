@@ -1,5 +1,46 @@
 abstract type AbstractRigidContactModel end
 
+@enum RigidContactKind::UInt8 begin
+    WallContact = 1
+    RigidRigidContact = 2
+end
+
+"""
+    RigidContactKey(neighbor_system_index, local_particle, contact_slot, contact_kind)
+
+Shared tangential-history key for rigid contact.
+
+`contact_slot` stores the wall-manifold index for rigid-wall contact and the neighbor
+particle index for rigid-rigid contact.
+"""
+struct RigidContactKey
+    neighbor_system_index::Int
+    local_particle::Int
+    contact_slot::Int
+    contact_kind::RigidContactKind
+end
+
+@inline wall_contact_key(neighbor_system_index, local_particle, manifold_index) =
+    RigidContactKey(neighbor_system_index, local_particle, manifold_index, WallContact)
+
+@inline rigid_rigid_contact_key(neighbor_system_index, local_particle, neighbor_particle) =
+    RigidContactKey(neighbor_system_index, local_particle, neighbor_particle,
+                    RigidRigidContact)
+
+@inline function Base.:(==)(lhs::RigidContactKey, rhs::RigidContactKey)
+    return lhs.neighbor_system_index == rhs.neighbor_system_index &&
+           lhs.local_particle == rhs.local_particle &&
+           lhs.contact_slot == rhs.contact_slot &&
+           lhs.contact_kind == rhs.contact_kind
+end
+
+@inline Base.isequal(lhs::RigidContactKey, rhs::RigidContactKey) = lhs == rhs
+
+@inline function Base.hash(key::RigidContactKey, h::UInt)
+    return hash((key.neighbor_system_index, key.local_particle,
+                 key.contact_slot, key.contact_kind), h)
+end
+
 """
     RigidContactModel(; normal_stiffness,
                       normal_damping=0.0,
@@ -197,6 +238,21 @@ function contact_time_step(contact_model,
                            neighbor_contact_model,
                            neighbor_system::RigidBodySystem)
     return Inf
+end
+
+@inline function requires_update_callback(contact_model::RigidContactModel)
+    return contact_model.tangential_stiffness > 0 ||
+           contact_model.tangential_damping > 0 ||
+           contact_model.resting_contact_projection
+end
+
+create_contact_tangential_displacement(::Nothing, ELTYPE, ::Val{NDIMS}) where {NDIMS} = nothing
+
+function create_contact_tangential_displacement(contact_model::RigidContactModel, ELTYPE,
+                                                ::Val{NDIMS}) where {NDIMS}
+    requires_update_callback(contact_model) || return nothing
+
+    return Dict{RigidContactKey, SVector{NDIMS, ELTYPE}}()
 end
 
 function Base.show(io::IO, model::RigidContactModel)

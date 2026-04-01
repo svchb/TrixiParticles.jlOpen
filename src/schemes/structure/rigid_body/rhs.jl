@@ -201,6 +201,9 @@ function interact!(dv, v_particle_system, u_particle_system,
 
     NDIMS = ndims(particle_system)
     ELTYPE = eltype(particle_system)
+    zero_tangential = zero(SVector{NDIMS, ELTYPE})
+    contact_map = particle_system.cache.contact_tangential_displacement
+    neighbor_system_index = system_indices(neighbor_system, semi)
     contact_count = 0
     max_contact_penetration = zero(ELTYPE)
 
@@ -254,14 +257,28 @@ function interact!(dv, v_particle_system, u_particle_system,
 
                         relative_velocity = v_particle - v_boundary
                         normal_velocity = dot(relative_velocity, normal)
+                        tangential_velocity = relative_velocity - normal_velocity * normal
 
-                        normal_force_magnitude = normal_contact_force(contact_model,
-                                                                     penetration_effective,
-                                                                     normal_velocity,
-                                                                     ELTYPE)
+                        normal_force_magnitude,
+                        normal_force_friction_reference = normal_contact_force_components(contact_model,
+                                                                                          penetration_effective,
+                                                                                          normal_velocity,
+                                                                                          ELTYPE)
 
                         if normal_force_magnitude > 0
-                            interaction_force = normal_force_magnitude * normal
+                            contact_key = wall_contact_key(neighbor_system_index, particle,
+                                                           manifold_index)
+                            tangential_displacement = isnothing(contact_map) ?
+                                                      zero_tangential :
+                                                      get(contact_map, contact_key,
+                                                          zero_tangential)
+                            tangential_force = tangential_contact_force(contact_model,
+                                                                        tangential_displacement,
+                                                                        tangential_velocity,
+                                                                        normal_force_friction_reference,
+                                                                        ELTYPE)
+                            interaction_force = normal_force_magnitude * normal +
+                                                tangential_force
 
                             for dim in eachindex(interaction_force)
                                 particle_system.force_per_particle[dim,
@@ -301,7 +318,8 @@ end
     distance <= eps(ELTYPE) && return particle_system
 
     penetration = contact_model.contact_distance - distance
-    penetration <= 0 && return particle_system
+    penetration_effective = penetration - contact_model.penetration_slop
+    penetration_effective <= 0 && return particle_system
 
     normal = pos_diff / distance
     wall_velocity = current_velocity(v_neighbor_system, neighbor_system, neighbor)
@@ -327,7 +345,8 @@ end
                                                       normal,
                                                       normal_merge_cos)
     accumulate_contact_manifold_sums!(particle_system.cache, particle, manifold_index,
-                                      contact_weight, normal, wall_velocity, penetration)
+                                      contact_weight, normal, wall_velocity,
+                                      penetration_effective)
 
     return particle_system
 end
@@ -482,6 +501,10 @@ function tangential_contact_force(contact_model::RigidContactModel,
     if tangential_speed > eps(ELTYPE)
         speed_factor = tanh(tangential_speed / regularization_velocity)
         return -kinetic_limit * speed_factor * tangential_velocity / tangential_speed
+    end
+
+    if trial_norm > eps(ELTYPE)
+        return -kinetic_limit * force_trial / trial_norm
     end
 
     return zero(force_trial)

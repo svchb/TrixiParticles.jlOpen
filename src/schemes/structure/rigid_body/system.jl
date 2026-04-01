@@ -147,7 +147,12 @@ end
 
 function create_cache_contact(contact_model, ELTYPE, ::Val{NDIMS},
                               n_particles, max_manifolds) where {NDIMS}
-    return (; contact_count=Ref(0),
+    tangential_displacement = create_contact_tangential_displacement(contact_model,
+                                                                     ELTYPE,
+                                                                     Val(NDIMS))
+
+    return (; contact_tangential_displacement=tangential_displacement,
+            contact_count=Ref(0),
             max_contact_penetration=Ref(zero(ELTYPE)))
 end
 
