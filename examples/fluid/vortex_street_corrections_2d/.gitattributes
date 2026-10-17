@@ -1,0 +1,3 @@
+# Recorded evidence is byte-exact; disable platform-dependent newline conversion.
+evidence/* -text
+figures/*.png -text
