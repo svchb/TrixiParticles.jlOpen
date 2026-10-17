@@ -1,0 +1,132 @@
+{
+  "evidence/regularized_tgv_summary.csv": {
+    "source_dataset": "regularized_summary.csv",
+    "sha256": "05e86908617eb6af8cd27627b1799d83eb440f9c114aa49a1627969569923217",
+    "bytes": 1185
+  },
+  "evidence/prototype_cylinder_statistics.csv": {
+    "source_dataset": "cylinder_statistics.csv",
+    "sha256": "6946d0e92c3eae52f462e805327ec30ca8512084d4dcbbb1e9c286935504f498",
+    "bytes": 3920
+  },
+  "evidence/reference_statistics.csv": {
+    "source_dataset": "reference_statistics.csv",
+    "sha256": "48377506f1451efdd7785d70e5a6d86673a47fe0da9594e0962b91a78ea11396",
+    "bytes": 990
+  },
+  "evidence/reference_convergence.csv": {
+    "source_dataset": "reference_convergence.csv",
+    "sha256": "2cf7c18a234e1e07e1b508fddd50e819ada07154e91edebb46998fb8ad084580",
+    "bytes": 297
+  },
+  "evidence/pressure_reference_controls.csv": {
+    "source_dataset": "pressure_reference/pressure_reference.csv",
+    "sha256": "3f4d7276f984ae4ead3e3e63ae879ba9efb6ddf437d08a94fb8a6861a2cc019f",
+    "bytes": 5817
+  },
+  "evidence/ghost_cache_before.csv": {
+    "source_dataset": "baseline/ghost_cache_probes.csv",
+    "sha256": "a8f2baf690b4c0b63e990824a52bf47bce5381a3dd5d67b58ce4ce15b48da0f4",
+    "bytes": 390
+  },
+  "evidence/ghost_cache_after.csv": {
+    "source_dataset": "mirroring_fixed/ghost_cache_probes.csv",
+    "sha256": "16f53be522efad88069f52f1c5d1506129d01853cb06daba613717f31885e05c",
+    "bytes": 352
+  },
+  "evidence/operator_consistency.csv": {
+    "source_dataset": "baseline/operators.csv",
+    "sha256": "3770dc7a1a8a398df70330a33a566494946a0b24919f74fa2564541cd7d5ce3f",
+    "bytes": 45827
+  },
+  "evidence/native_coupling_matrix.csv": {
+    "source_dataset": "native_shifting/matrix.csv",
+    "sha256": "88d70cfcde5afcfd7f238f6d20c4d359ac7b64e911e5e4047383262b97311cdf",
+    "bytes": 13659
+  },
+  "evidence/native_self_coupled.csv": {
+    "source_dataset": "native_self_audit/self_coupled.csv",
+    "sha256": "ac9177c1317bcc0b8d141cba4d21949fbc3df62425e970bd5c38d47d6fc3e9db",
+    "bytes": 2556
+  },
+  "evidence/native_self_static.csv": {
+    "source_dataset": "native_self_audit/self_static.csv",
+    "sha256": "62128fe529057dc6e3c3465f2dd523832564b3163425dee318704eaa9dba760c",
+    "bytes": 1834
+  },
+  "evidence/native_self_spectrum.csv": {
+    "source_dataset": "native_self_audit/self_spectrum.csv",
+    "sha256": "2e9f618937ce558ef06a85a2d71653a36e77e6eb9782e6861ad582cb67881922",
+    "bytes": 2403
+  },
+  "evidence/native_self_validation.csv": {
+    "source_dataset": "native_self_validation/self_validation.csv",
+    "sha256": "cc112b983710bdb8521d36715c9bb04a3fbf35225c194710f565f86fe41839f5",
+    "bytes": 6908
+  },
+  "evidence/native_clock_controls.csv": {
+    "source_dataset": "native_self_validation/clock_controls.csv",
+    "sha256": "09a4b3a9b9edf7c83d7c193d5bfd600c0e632d195571cb2e3a305a0b795b135d",
+    "bytes": 2537
+  },
+  "evidence/actual_pr_repeat_statistics.csv": {
+    "source_dataset": "pr1359_repeats/repeat_statistics.csv",
+    "sha256": "61a10afe568ed098ba621dc8adcdbf2bca267c7500ce3c9905089fcc8d5173f9",
+    "bytes": 987
+  },
+  "evidence/actual_pr_window_sensitivity.csv": {
+    "source_dataset": "pr1359_repeats/window_sensitivity.csv",
+    "sha256": "2aacfd3b0e7425b709f7a093bd02a7ff1d305b34b6a95ea6955f62c3d814cab9",
+    "bytes": 1745
+  },
+  "evidence/actual_pr_short_checks.csv": {
+    "source_dataset": "pr1359_repeats/short_library_checks.csv",
+    "sha256": "db75e53af947b7bbff06fd1ec0a1346483be1ce23585fa0f1b575a5de1be14d7",
+    "bytes": 2099
+  },
+  "evidence/reference_force_audit.csv": {
+    "source_dataset": "focused/reference_audit/summary.csv",
+    "sha256": "a069ee5f903d4fabcd03b1ff5ed0469ba8e1c59b4ef643274b72df80d6b321e8",
+    "bytes": 1160
+  },
+  "evidence/analytic_force_quadrature.csv": {
+    "source_dataset": "focused/reference_audit/analytic_force_quadrature.csv",
+    "sha256": "65f2126f04387f2deca228be14e04736762098d7e51081f313d0c5e4b8efee33",
+    "bytes": 1427
+  },
+  "evidence/boundary_comparison.json": {
+    "source_dataset": "focused/boundary_comparison.json",
+    "sha256": "f486e8a90f3a5442336552794230a945eb511a4a03edd0602c83dd7b352ab8d3",
+    "bytes": 1854
+  },
+  "evidence/coverage.json": {
+    "source_dataset": "coverage.json",
+    "sha256": "72e84abd347f03ab17687608f09197459b4f8f0eb67016003f21074406719290",
+    "bytes": 481
+  },
+  "figures/tgv_refinement.png": {
+    "source_dataset": "regularized_refinement.png",
+    "sha256": "3acdb4a3aab6dbd43b29c28b2448af7a1c66fd8f12ca245cacb37f8105bf64d0",
+    "bytes": 169473
+  },
+  "figures/native_self_interaction.png": {
+    "source_dataset": "native_shifting/self_interaction_collapse.png",
+    "sha256": "1d7049e22220e1b0aafed8c292f346e8bd850087a151b40968635bcc8bdd7375",
+    "bytes": 126316
+  },
+  "figures/repeat_force_evolution.png": {
+    "source_dataset": "pr1359_repeats/force_comparison.png",
+    "sha256": "a3e924e3fee53fb4962768df792e1bf5338dbe22a288c0dc8d54d093552e63cf",
+    "bytes": 679216
+  },
+  "figures/repeat_mean_wake.png": {
+    "source_dataset": "pr1359_repeats/wake_comparison.png",
+    "sha256": "4f9dc46e67378f05dca29b0645a115c7ca83472f6646e507b55d8e1f8d2ac88d",
+    "bytes": 78861
+  },
+  "evidence/provenance.json": {
+    "source_dataset": "curated source/protocol hashes",
+    "sha256": "635217eb69fe715a062d4c71eecec7350747abb6c1ca88173fae5b69b9459f2d",
+    "bytes": 23940
+  }
+}

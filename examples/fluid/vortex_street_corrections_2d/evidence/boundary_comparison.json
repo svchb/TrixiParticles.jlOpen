@@ -1,0 +1,60 @@
+{
+  "baseline": {
+    "tag": "primary_16_uncorrected",
+    "data_directory": "cylinder/primary_16_uncorrected",
+    "n": 16,
+    "case": "uncorrected",
+    "boundary": "zeroth",
+    "mean_drag": 1.5443127499245872,
+    "drag_ci_low": 1.5418920638760454,
+    "drag_ci_high": 1.546598774478956,
+    "lift_rms": 0.4280323007735535,
+    "strouhal": 0.22633744855967078,
+    "cycles": 33,
+    "drag_window_change": 0.001129608773079812,
+    "lift_window_change": 0.018658283304304964,
+    "strouhal_window_change": 0.004260815691958585,
+    "stationary": true,
+    "mass_budget_residual": 0.0,
+    "recirculation_length_d": 0.9000000000000004,
+    "runtime_seconds": 22942.273397202
+  },
+  "first_order": {
+    "tag": "boundary_16_uncorrected_first",
+    "data_directory": "focused/boundary/boundary_16_uncorrected_first",
+    "n": 16,
+    "case": "uncorrected",
+    "boundary": "first",
+    "mean_drag": 1.5458294240146928,
+    "drag_ci_low": 1.54401928381075,
+    "drag_ci_high": 1.5477251273639803,
+    "lift_rms": 0.42850973707993384,
+    "strouhal": 0.2261823166552433,
+    "cycles": 33,
+    "drag_window_change": 0.0009471165116017816,
+    "lift_window_change": 0.011165091965202547,
+    "strouhal_window_change": 1.2271328734303815e-16,
+    "stationary": true,
+    "mass_budget_residual": 0.0,
+    "recirculation_length_d": 0.7999999999999998,
+    "runtime_seconds": 21589.317424765
+  },
+  "relative_changes": {
+    "mean_drag": 0.0009821029387859735,
+    "lift_rms": 0.001115421208907658,
+    "strouhal": -0.0006854009595614123
+  },
+  "drag_difference_ci95": [
+    -0.0013779675504983046,
+    0.004729275983508529
+  ],
+  "wake_velocity_vector_rms_over_U": 0.005336156030286051,
+  "mean_density_rms_percent": [
+    0.6854893243626319,
+    0.6704893181642748
+  ],
+  "recirculation_interpolated_d": [
+    0.9032968143565077,
+    0.8976139109537309
+  ]
+}

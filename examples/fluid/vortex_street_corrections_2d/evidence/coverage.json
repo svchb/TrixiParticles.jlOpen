@@ -1,0 +1,17 @@
+{
+  "operator_configurations": 90,
+  "operator_region_rows": 210,
+  "mirroring_before_rows": 1080,
+  "mirroring_after_rows": 1080,
+  "bulk_unregularized": 36,
+  "bulk_regularized": 36,
+  "baseline_temporal_mach_controls": 8,
+  "regularized_temporal_mach_controls": 8,
+  "coupled_controls": 24,
+  "native_strength_controls": 12,
+  "open_flow_cases": 48,
+  "open_controls": 24,
+  "pressure_consistency_cases": 60,
+  "transport_cases": 36,
+  "pressure_reference_gauge_controls": 60
+}
