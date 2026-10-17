@@ -47,8 +47,9 @@ function interact!(dv, v_particle_system, u_particle_system,
                                                         neighbor_system_coords,
                                                         neighborhood_search,
                                                         backend, particle;
-                                                        init) do particle, neighbor,
-                                                                 pos_diff, distance
+                                                        init
+                                                        ) do particle, neighbor,
+                                                             pos_diff, distance
             # Skip neighbors with the same position when both endpoint gradients are zero.
             # Note that `return` only exits the closure, i.e., skips the current neighbor.
             if skip_zero_distance(zero_distance_mode, distance, zero_distance_threshold)
@@ -149,9 +150,11 @@ end
 
     # For `ContinuityDensity` without correction, this is equivalent to
     # dv_pressure = -m_b * (p_a + p_b) / (rho_a * rho_b) * grad_kernel.
+    p_avg = pair_pressure_offset(particle_system, neighbor_system, particle, neighbor)
     dv_pressure = pressure_acceleration(particle_system, neighbor_system,
                                         particle, neighbor,
-                                        m_a, m_b, p_a, p_b, rho_a, rho_b, pos_diff,
+                                        m_a, m_b, p_a - p_avg, p_b - p_avg, rho_a, rho_b,
+                                        pos_diff,
                                         distance, grad_kernel, gradient_correction)
     dv_particle += dv_pressure * pressure_correction
 

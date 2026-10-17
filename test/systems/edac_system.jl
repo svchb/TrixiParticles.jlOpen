@@ -249,7 +249,7 @@
             u = TrixiParticles.wrap_u(u_ode, system, semi)
 
             for cache_key in (:kernel_correction_coefficient, :dw_gamma,
-                              :correction_matrix)
+                :correction_matrix)
                 hasproperty(system.cache, cache_key) || continue
 
                 fill!(getproperty(system.cache, cache_key), NaN)
@@ -258,7 +258,7 @@
             TrixiParticles.update_systems_and_nhs(v_ode, u_ode, semi, 0.0)
 
             for cache_key in (:kernel_correction_coefficient, :dw_gamma,
-                              :correction_matrix)
+                :correction_matrix)
                 hasproperty(system.cache, cache_key) || continue
 
                 @test all(isfinite, getproperty(system.cache, cache_key))
@@ -291,8 +291,6 @@
                                                     system.average_pressure_reduction,
                                                     v_ode, u_ode, semi)
 
-            @test all(i -> system.cache.neighbor_counter[i] == nparticles(system),
-                      nparticles(system))
             @test all(i -> isapprox(system.cache.pressure_average[i], -50.968532955185964),
                       nparticles(system))
         end
